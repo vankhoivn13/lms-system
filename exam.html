@@ -6,7 +6,6 @@
 <title>Phòng Thi — LMS</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 <style>
   :root {
     --primary: #2563eb; --danger: #dc2626; --success: #16a34a;
@@ -766,7 +765,6 @@ async function startWebcam() {
       if (vid.readyState >= 2 && webcamStream.getVideoTracks()[0]?.readyState === 'live') {
         label.textContent = 'Đang giám sát';
         initFaceDetection();
-        initPhoneDetection();
         return;
       }
       webcamStream.getTracks().forEach(t => t.stop());
@@ -790,7 +788,7 @@ async function initFaceDetection() {
     blazeFaceModel = await blazeface.load();
     faceDetectionReady = true;
     label.textContent = 'Đang giám sát';
-    _dbg('✅ Face OK | ⏳ COCO đang tải...');
+    _dbg('✅ Face OK | Đang giám sát');
     setInterval(checkFace, 1500);
   } catch (e) {
     label.textContent = 'Lỗi mô hình AI';
@@ -805,7 +803,7 @@ async function checkFace() {
   try {
     const predictions = await blazeFaceModel.estimateFaces(video, false);
     const count = predictions.length;
-    _dbg(`✅ Face OK | COCO: ${cocoModel ? 'OK' : '⏳'}<br>Mặt: ${count} | noFaceCount: ${noFaceCount}`);
+    _dbg(`✅ Face OK | Mặt: ${count} | noFaceCount: ${noFaceCount}`);
 
     if (count > 1) {
       noFaceCount = 0;
@@ -875,47 +873,13 @@ function _showVioSent() {
 }
 
 // ════════════════════════════════════════════════
-// Phone / object detection (TensorFlow COCO-SSD)
-// ════════════════════════════════════════════════
-let cocoModel = null;
-const _lastWarningTime = {};  // debounce: prevent warning modal from spamming per type
+const _lastWarningTime = {};
 
 function recordViolationDebounced(reason, type, severity, cooldownMs) {
   const now = Date.now();
   if (_lastWarningTime[type] && now - _lastWarningTime[type] < (cooldownMs || 30000)) return;
   _lastWarningTime[type] = now;
   recordViolation(reason, type, severity);
-}
-
-async function initPhoneDetection() {
-  try {
-    _dbg('✅ Face OK | ⏳ COCO đang tải...');
-    cocoModel = await cocoSsd.load();
-    _dbg('✅ Face OK | ✅ COCO OK');
-    setInterval(detectPhone, 2000);
-  } catch (e) {
-    _dbg('✅ Face OK | ❌ COCO LỖI: ' + e.message);
-  }
-}
-
-async function detectPhone() {
-  if (!cocoModel || !webcamStream || submitted) return;
-  const video = document.getElementById('exam-cam');
-  if (video.readyState < 2) return;
-  try {
-    const predictions = await cocoModel.detect(video);
-    // Show top detected objects for debugging
-    const top = predictions.slice(0,3).map(p => `${p.class}(${(p.score*100).toFixed(0)}%)`).join(', ');
-    _dbg(`✅ Face OK | ✅ COCO OK<br>Mặt: ${document.getElementById('cam-label').textContent.includes('mặt') ? '0' : '1+'}<br>Vật: ${top || 'không có'}`);
-    // cell phone, remote (often misclassified by COCO-SSD)
-    const suspicious = predictions.find(p =>
-      (p.class === 'cell phone' && p.score > 0.3) ||
-      (p.class === 'remote'     && p.score > 0.5)
-    );
-    if (suspicious) {
-      recordViolationDebounced('Sử dụng điện thoại', 'phone_detected', 'high', 30000);
-    }
-  } catch (e) { _dbg('❌ COCO detect lỗi: ' + e.message); }
 }
 
 // ════════════════════════════════════════════════
