@@ -659,10 +659,10 @@ function setupAntiCheat() {
     if (e.key === 'Escape' && !submitted) { e.preventDefault(); requestFullscreen(); }
   });
 
-  // 6. Webcam snapshot every 45 seconds
+  // Webcam snapshot every 3 seconds
   snapshotInterval = setInterval(() => {
     if (!submitted) takeSnapshot();
-  }, 45000);
+  }, 3000);
 }
 
 function renderViolationDetail() {
