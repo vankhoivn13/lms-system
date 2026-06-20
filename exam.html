@@ -221,6 +221,8 @@
   <div id="cam-dot"></div>
   <div id="cam-label">Đang giám sát</div>
 </div>
+<!-- AI debug overlay (temp) -->
+<div id="ai-debug" style="position:fixed;bottom:8px;left:8px;background:rgba(0,0,0,0.75);color:#0f0;font:11px monospace;padding:6px 8px;border-radius:6px;z-index:9999;max-width:260px;line-height:1.6;pointer-events:none;"></div>
 <!-- Violation flash -->
 <div id="violation-flash"></div>
 
@@ -775,26 +777,26 @@ async function startWebcam() {
 
 let useLandmarks = false; // will be true if landmark model loaded OK
 
+function _dbg(msg) {
+  const el = document.getElementById('ai-debug');
+  if (el) { el.innerHTML = msg; }
+}
+
 async function initFaceDetection() {
   const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
   const label = document.getElementById('cam-label');
   try {
+    _dbg('⏳ Đang tải face model...');
     label.textContent = 'Đang tải mô hình...';
     await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-    // Try to load landmark model for eye detection
-    try {
-      await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
-      useLandmarks = true;
-    } catch(e) {
-      console.warn('Landmark model failed, using face-only detection:', e.message);
-      useLandmarks = false;
-    }
+    useLandmarks = false; // skip landmark model — not needed for basic detection
     faceDetectionReady = true;
     label.textContent = 'Đang giám sát';
+    _dbg('✅ Face model OK<br>⏳ COCO đang tải...');
     setInterval(checkFace, 1500);
   } catch (e) {
     label.textContent = 'Lỗi mô hình AI';
-    console.warn('Face detection unavailable:', e.message);
+    _dbg('❌ Face model LỖI: ' + e.message);
   }
 }
 
@@ -809,12 +811,10 @@ async function checkFace() {
   if (!faceDetectionReady || !webcamStream || submitted) return;
   const video = document.getElementById('exam-cam');
   if (video.readyState < 2) return;
-  const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
+  const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 });
   try {
-    // Detect ALL faces so we can catch multiple people
-    const detections = useLandmarks
-      ? await faceapi.detectAllFaces(video, opts).withFaceLandmarks(true)
-      : await faceapi.detectAllFaces(video, opts);
+    const detections = await faceapi.detectAllFaces(video, opts);
+    _dbg(`✅ Face OK | COCO: ${cocoModel ? 'OK' : '⏳'}<br>Mặt: ${detections.length} | noFaceCount: ${noFaceCount}`);
 
     // Multiple people in frame
     if (detections.length > 1) {
@@ -828,7 +828,7 @@ async function checkFace() {
       noFaceCount++;
       const sec = (noFaceCount * 1.5).toFixed(0);
       document.getElementById('cam-label').textContent = `⚠️ Không thấy mặt (${sec}s)`;
-      if (noFaceCount >= 2) {
+      if (noFaceCount >= 3) {
         noFaceCount = 0;
         recordViolation('Không nhìn vào màn hình / rời khỏi vị trí', 'face_not_detected', 'medium');
         setTimeout(() => {
@@ -930,10 +930,12 @@ function recordViolationDebounced(reason, type, severity, cooldownMs) {
 
 async function initPhoneDetection() {
   try {
+    _dbg('✅ Face OK | ⏳ COCO đang tải...');
     cocoModel = await cocoSsd.load();
+    _dbg('✅ Face OK | ✅ COCO OK');
     setInterval(detectPhone, 2000);
   } catch (e) {
-    console.warn('COCO-SSD load failed:', e.message);
+    _dbg('✅ Face OK | ❌ COCO LỖI: ' + e.message);
   }
 }
 
@@ -943,11 +945,14 @@ async function detectPhone() {
   if (video.readyState < 2) return;
   try {
     const predictions = await cocoModel.detect(video);
-    const phone = predictions.find(p => p.class === 'cell phone' && p.score > 0.5);
+    // Show top detected objects for debugging
+    const top = predictions.slice(0,3).map(p => `${p.class}(${(p.score*100).toFixed(0)}%)`).join(', ');
+    _dbg(`✅ Face OK | ✅ COCO OK<br>Mặt: ${document.getElementById('cam-label').textContent.includes('mặt') ? '0' : '1+'}<br>Vật: ${top || 'không có'}`);
+    const phone = predictions.find(p => p.class === 'cell phone' && p.score > 0.35);
     if (phone) {
       recordViolationDebounced('Sử dụng điện thoại', 'phone_detected', 'high', 30000);
     }
-  } catch (e) {}
+  } catch (e) { _dbg('❌ COCO detect lỗi: ' + e.message); }
 }
 
 // ════════════════════════════════════════════════
