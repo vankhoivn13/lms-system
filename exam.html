@@ -907,8 +907,12 @@ async function detectPhone() {
     // Show top detected objects for debugging
     const top = predictions.slice(0,3).map(p => `${p.class}(${(p.score*100).toFixed(0)}%)`).join(', ');
     _dbg(`✅ Face OK | ✅ COCO OK<br>Mặt: ${document.getElementById('cam-label').textContent.includes('mặt') ? '0' : '1+'}<br>Vật: ${top || 'không có'}`);
-    const phone = predictions.find(p => p.class === 'cell phone' && p.score > 0.35);
-    if (phone) {
+    // cell phone, remote (often misclassified by COCO-SSD)
+    const suspicious = predictions.find(p =>
+      (p.class === 'cell phone' && p.score > 0.3) ||
+      (p.class === 'remote'     && p.score > 0.5)
+    );
+    if (suspicious) {
       recordViolationDebounced('Sử dụng điện thoại', 'phone_detected', 'high', 30000);
     }
   } catch (e) { _dbg('❌ COCO detect lỗi: ' + e.message); }
