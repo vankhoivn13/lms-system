@@ -741,17 +741,42 @@ let faceDetectionReady = false;
 let noFaceCount = 0; // consecutive no-face detections
 
 async function startWebcam() {
+  const label = document.getElementById('cam-label');
+  label.textContent = 'Đang kết nối...';
+
+  // Build constraint list with device enumeration (same robust logic as login page)
+  const constraints = [];
   try {
-    webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
-    const vid = document.getElementById('exam-cam');
-    vid.srcObject = webcamStream;
-    vid.play().catch(() => {});
-    setTimeout(takeSnapshot, 5000);
-    // Start face detection after webcam is ready
-    initFaceDetection();
-  } catch (e) {
-    document.getElementById('cam-label').textContent = 'Không có camera';
+    const temp = await navigator.mediaDevices.getUserMedia({ video: true });
+    temp.getTracks().forEach(t => t.stop());
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices.filter(d => d.kind === 'videoinput');
+    cameras.reverse().forEach(cam => {
+      constraints.push({ video: { deviceId: { exact: cam.deviceId }, width: { ideal: 320 }, height: { ideal: 240 } } });
+    });
+  } catch(e) {}
+  constraints.push({ video: { width: { ideal: 320 }, height: { ideal: 240 } } });
+  constraints.push({ video: true });
+
+  const vid = document.getElementById('exam-cam');
+  for (const c of constraints) {
+    try {
+      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000));
+      webcamStream = await Promise.race([navigator.mediaDevices.getUserMedia(c), timeout]);
+      vid.srcObject = webcamStream;
+      await vid.play().catch(() => {});
+      // Verify frames are flowing
+      await new Promise(r => setTimeout(r, 800));
+      if (vid.readyState >= 2 && webcamStream.getVideoTracks()[0]?.readyState === 'live') {
+        label.textContent = 'Đang giám sát';
+        setTimeout(takeSnapshot, 3000);
+        initFaceDetection();
+        return;
+      }
+      webcamStream.getTracks().forEach(t => t.stop());
+    } catch(e) {}
   }
+  label.textContent = '❌ Không có camera';
 }
 
 let useLandmarks = false; // will be true if landmark model loaded OK
