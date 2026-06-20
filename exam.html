@@ -272,7 +272,7 @@
     <div class="big-score" id="final-score">—</div>
     <div class="score-label" id="final-score-label">điểm</div>
     <div class="result-msg" id="result-msg"></div>
-    <button class="btn btn-primary" style="margin-top:20px;width:100%;" onclick="window.location.href=window.location.href.split('?')[0]+'?page=login'">
+    <button class="btn btn-primary" style="margin-top:20px;width:100%;" onclick="window.location.href='./index.html'">
       🏠 Về trang chủ
     </button>
   </div>
@@ -318,7 +318,7 @@ window.addEventListener('DOMContentLoaded', () => {
   examId      = sessionStorage.getItem('lms_exam_id');
 
   if (!studentData || !examId) {
-    window.location.href = window.location.href.split('?')[0] + '?page=login';
+    window.location.href = './index.html';
     return;
   }
 
