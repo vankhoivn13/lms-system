@@ -219,8 +219,8 @@
   <canvas id="exam-canvas"></canvas>
   <div id="cam-dot"></div>
   <div id="cam-label">Đang giám sát</div>
-  <div id="snap-status" style="font-size:10px;color:#aaa;margin-top:2px;text-align:center;max-width:120px;word-break:break-all;"></div>
 </div>
+<div id="snap-status" style="position:fixed;bottom:130px;left:8px;font-size:10px;color:#fff;background:rgba(0,0,0,.7);padding:2px 6px;border-radius:4px;z-index:300;max-width:160px;word-break:break-all;"></div>
 
 <!-- Violation flash -->
 <div id="violation-flash"></div>
@@ -861,10 +861,10 @@ function takeSnapshot() {
   if (!webcamStream) return;
   const video  = document.getElementById('exam-cam');
   const canvas = document.getElementById('exam-canvas');
-  canvas.width  = 96;
-  canvas.height = 72;
-  canvas.getContext('2d').drawImage(video, 0, 0, 96, 72);
-  const b64 = canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
+  canvas.width  = 32;
+  canvas.height = 24;
+  canvas.getContext('2d').drawImage(video, 0, 0, 32, 24);
+  const b64 = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
   snapshotIndex++;
   const idx = snapshotIndex;
   const sid = studentData.student_id;
