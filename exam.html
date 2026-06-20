@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Phòng Thi — LMS</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
 <style>
@@ -102,6 +103,19 @@
   }
   #btn-submit:hover { background: #15803d; }
   #btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Camera 2 QR panel */
+  #cam2-panel {
+    position: fixed; bottom: 130px; left: 16px; z-index: 200;
+    background: #1e293b; border-radius: 10px; border: 2px solid #334155;
+    width: 140px; padding: 8px; text-align: center; display: none;
+  }
+  #cam2-panel canvas { width: 120px !important; height: 120px !important; border-radius: 6px; }
+  #cam2-status {
+    font-size: 9px; margin-top: 5px; color: #94a3b8; line-height: 1.4;
+  }
+  #cam2-status.connected { color: #4ade80; }
+  #cam2-status.warning   { color: #fbbf24; }
 
   /* Webcam corner */
   #cam-corner {
@@ -215,6 +229,12 @@
 </div>
 
 <!-- Webcam corner -->
+<!-- Camera 2 QR panel -->
+<div id="cam2-panel">
+  <canvas id="cam2-qr"></canvas>
+  <div id="cam2-status">📷 Scan để bật<br>Camera 2</div>
+</div>
+
 <div id="cam-corner">
   <video id="exam-cam" autoplay playsinline muted></video>
   <div id="cam-dot"></div>
@@ -351,6 +371,9 @@ async function loadExam() {
     document.getElementById('loading-msg').textContent = '✅ Đề thi đã tải xong. Nhấn nút bên dưới để bắt đầu.';
     document.querySelector('.spinner').style.display = 'none';
     document.getElementById('btn-start-exam').style.display = 'block';
+
+    // Generate Camera 2 QR code
+    initCam2QR();
   } catch(e) { alert('Lỗi tải đề thi: ' + e.message); }
 }
 
@@ -899,6 +922,47 @@ function _showVioSent() {
 }
 
 // ════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+// Camera 2 — QR code for phone monitoring
+// ════════════════════════════════════════════════
+function initCam2QR() {
+  if (!studentData || !examId) return;
+  const monitorUrl = 'https://vankhoivn13.github.io/lms-system/monitor.html'
+    + '?sid=' + encodeURIComponent(studentData.student_id)
+    + '&eid=' + encodeURIComponent(examId);
+
+  const canvas = document.getElementById('cam2-qr');
+  QRCode.toCanvas(canvas, monitorUrl, { width: 120, margin: 1, color: { dark:'#000', light:'#fff' } }, err => {
+    if (!err) document.getElementById('cam2-panel').style.display = 'block';
+  });
+
+  // Poll GAS violations for cam2_connected signal every 8s
+  let cam2Connected = false;
+  const cam2Timer = setInterval(async () => {
+    if (submitted) { clearInterval(cam2Timer); return; }
+    try {
+      const res = await gas('getViolations', examId);
+      if (!res.success) return;
+      const hasHeartbeat = res.data.some(v =>
+        v.student_id === studentData.student_id &&
+        (v.type === 'cam2_connected' || v.type === 'cam2_online') &&
+        Date.now() - new Date(v.timestamp).getTime() < 60000
+      );
+      const statusEl = document.getElementById('cam2-status');
+      if (hasHeartbeat && !cam2Connected) {
+        cam2Connected = true;
+        statusEl.textContent = '✅ Camera 2\nđã kết nối';
+        statusEl.className = 'connected';
+      } else if (!hasHeartbeat && cam2Connected) {
+        cam2Connected = false;
+        statusEl.textContent = '⚠️ Camera 2\nmất kết nối';
+        statusEl.className = 'warning';
+        recordViolation('Camera 2 mất kết nối', 'cam2_disconnected', 'high');
+      }
+    } catch(e) {}
+  }, 8000);
+}
+
 const _lastWarningTime = {};
 
 function recordViolationDebounced(reason, type, severity, cooldownMs) {

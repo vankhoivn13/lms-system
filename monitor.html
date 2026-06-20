@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Camera Giám Sát 2</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0f172a; color:#fff; font-family:'Segoe UI',sans-serif; min-height:100vh;
+         display:flex; flex-direction:column; align-items:center; padding:16px; gap:12px; }
+  h2 { font-size:15px; color:#94a3b8; letter-spacing:.5px; margin-top:4px; }
+  #cam2 { width:100%; max-width:420px; border-radius:12px; border:2px solid #334155;
+           background:#000; aspect-ratio:4/3; object-fit:cover; }
+  #status-card {
+    width:100%; max-width:420px; background:#1e293b; border-radius:12px;
+    padding:14px 16px; display:flex; align-items:center; gap:12px;
+  }
+  #status-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; background:#64748b; }
+  #status-dot.ok   { background:#22c55e; box-shadow:0 0 8px #22c55e; animation:pulse 1.5s infinite; }
+  #status-dot.warn { background:#f59e0b; box-shadow:0 0 8px #f59e0b; }
+  #status-dot.err  { background:#ef4444; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  #status-text { font-size:14px; line-height:1.4; }
+  #status-text small { display:block; color:#64748b; font-size:11px; margin-top:2px; }
+  #face-count {
+    width:100%; max-width:420px; background:#1e293b; border-radius:12px;
+    padding:12px 16px; font-size:13px; color:#94a3b8; display:none;
+  }
+  #face-count span { color:#fff; font-weight:600; }
+  .warn-banner {
+    width:100%; max-width:420px; background:#7f1d1d; border-radius:12px;
+    padding:12px 16px; font-size:14px; color:#fca5a5; display:none; text-align:center;
+  }
+  #guide { max-width:420px; color:#475569; font-size:12px; text-align:center; line-height:1.6; }
+</style>
+</head>
+<body>
+<h2>📹 CAMERA GIÁM SÁT 2</h2>
+
+<video id="cam2" autoplay playsinline muted></video>
+
+<div id="status-card">
+  <div id="status-dot"></div>
+  <div id="status-text">
+    Đang khởi động...
+    <small id="student-info"></small>
+  </div>
+</div>
+
+<div id="face-count">Người phát hiện: <span id="fc-num">0</span></div>
+
+<div class="warn-banner" id="warn-banner">
+  ⚠️ Phát hiện người lạ trong phòng thi!
+</div>
+
+<p id="guide">Đặt điện thoại trên giá/ghế hướng về phía bàn học.<br>Không tắt màn hình trong suốt buổi thi.</p>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxeWng8djn2nsp26i4CinFZGlsQlGOFiUF4UAKO56uDWlAfbYlOTcjbvyHXiEPTda8K/exec';
+const p   = new URLSearchParams(location.search);
+const SID = p.get('sid') || '';
+const EID = p.get('eid') || '';
+
+document.getElementById('student-info').textContent = SID ? `Học sinh: ${SID}` : '';
+
+const dot        = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text').childNodes[0];
+const fcDiv      = document.getElementById('face-count');
+const fcNum      = document.getElementById('fc-num');
+const warnBanner = document.getElementById('warn-banner');
+
+function setStatus(msg, cls='') {
+  statusText.textContent = msg;
+  dot.className = cls;
+}
+
+function beacon(type, detail, severity='medium') {
+  if (!SID || !EID) return;
+  const blob = new Blob([JSON.stringify({
+    action: 'logViolation',
+    args: [SID, EID, type, detail, severity]
+  })], { type: 'text/plain' });
+  navigator.sendBeacon(GAS_URL, blob);
+}
+
+// Heartbeat every 15s so admin knows phone is still connected
+setInterval(() => beacon('cam2_online', 'Camera 2 đang hoạt động', 'low'), 15000);
+
+const _last = {};
+function debounce(type, detail, severity, ms=30000) {
+  const now = Date.now();
+  if (_last[type] && now - _last[type] < ms) return;
+  _last[type] = now;
+  beacon(type, detail, severity);
+}
+
+let model = null;
+
+async function init() {
+  if (!SID || !EID) {
+    setStatus('❌ Thiếu thông tin học sinh', 'err');
+    return;
+  }
+
+  setStatus('Đang mở camera sau...');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: 640, height: 480 }
+    });
+    document.getElementById('cam2').srcObject = stream;
+    await document.getElementById('cam2').play();
+  } catch(e) {
+    setStatus('❌ Không mở được camera: ' + e.message, 'err');
+    return;
+  }
+
+  setStatus('Đang tải mô hình AI...', '');
+  try {
+    model = await blazeface.load();
+    setStatus('✅ Đang giám sát', 'ok');
+    fcDiv.style.display = 'block';
+    beacon('cam2_connected', 'Camera 2 vừa kết nối', 'low');
+    setInterval(detect, 2000);
+  } catch(e) {
+    setStatus('❌ Lỗi AI: ' + e.message, 'err');
+  }
+}
+
+async function detect() {
+  const video = document.getElementById('cam2');
+  if (!model || video.readyState < 2) return;
+  try {
+    const faces = await model.estimateFaces(video, false);
+    const n = faces.length;
+    fcNum.textContent = n;
+
+    if (n >= 1) {
+      // Camera 2 faces = extra people (student should NOT be in this view)
+      setStatus(`⚠️ Phát hiện ${n} người!`, 'warn');
+      warnBanner.style.display = 'block';
+      debounce('cam2_person', `Camera 2: phát hiện ${n} người trong phòng thi`, 'high');
+    } else {
+      warnBanner.style.display = 'none';
+      setStatus('✅ Đang giám sát', 'ok');
+    }
+  } catch(e) {}
+}
+
+// Keep screen on (Wake Lock API)
+async function keepAwake() {
+  try {
+    if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
+  } catch(e) {}
+}
+
+init().then(keepAwake);
+</script>
+</body>
+</html>
