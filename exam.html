@@ -838,9 +838,24 @@ function takeSnapshot() {
   canvas.width  = 320;
   canvas.height = 240;
   canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
-  const b64 = canvas.toDataURL('image/jpeg', 0.7);
+  const b64 = canvas.toDataURL('image/jpeg', 0.6);
   snapshotIndex++;
-  gas('saveSnapshot', b64, studentData.student_id, examId, snapshotIndex).catch(()=>{});
+  // Use POST with text/plain to avoid CORS preflight — base64 too large for GET URL
+  gasPost('saveSnapshot', [b64, studentData.student_id, examId, snapshotIndex]).catch(()=>{});
+}
+
+// POST-based gas call for large payloads (no CORS preflight with text/plain)
+async function gasPost(action, args) {
+  try {
+    const resp = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action, args }),
+      redirect: 'follow'
+    });
+    const text = await resp.text();
+    try { return JSON.parse(text); } catch(e) { return { success: false }; }
+  } catch(e) { return { success: false }; }
 }
 
 // ════════════════════════════════════════════════
