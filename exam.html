@@ -835,27 +835,13 @@ function takeSnapshot() {
   if (!webcamStream) return;
   const video  = document.getElementById('exam-cam');
   const canvas = document.getElementById('exam-canvas');
-  canvas.width  = 320;
-  canvas.height = 240;
-  canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
-  const b64 = canvas.toDataURL('image/jpeg', 0.6);
+  canvas.width  = 64;
+  canvas.height = 48;
+  canvas.getContext('2d').drawImage(video, 0, 0, 64, 48);
+  // Strip data: prefix — GAS already handles raw base64, and smaller payload fits in GET URL
+  const b64 = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
   snapshotIndex++;
-  // Use POST with text/plain to avoid CORS preflight — base64 too large for GET URL
-  gasPost('saveSnapshot', [b64, studentData.student_id, examId, snapshotIndex]).catch(()=>{});
-}
-
-// POST-based gas call for large payloads (no CORS preflight with text/plain)
-async function gasPost(action, args) {
-  try {
-    const resp = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action, args }),
-      redirect: 'follow'
-    });
-    const text = await resp.text();
-    try { return JSON.parse(text); } catch(e) { return { success: false }; }
-  } catch(e) { return { success: false }; }
+  gas('saveSnapshot', b64, studentData.student_id, examId, snapshotIndex).catch(()=>{});
 }
 
 // ════════════════════════════════════════════════
