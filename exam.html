@@ -897,19 +897,16 @@ function logViolation(type, detail, severity) {
 
   console.log('[violation] sending:', type, url.length, 'chars');
 
-  // Primary: fetch no-cors (simple GET, no preflight)
-  fetch(url, { mode: 'no-cors', redirect: 'follow' })
-    .then(() => _showVioSent())
-    .catch(() => {
-      // Fallback: Image() trick (survives CORS but needs global ref to avoid GC)
-      const img = new Image();
-      _pendingVioImgs.push(img);
-      img.onload = img.onerror = () => {
-        _pendingVioImgs.splice(_pendingVioImgs.indexOf(img), 1);
-        _showVioSent();
-      };
-      img.src = url;
-    });
+  // Image() trick: confirmed to reach GAS (onerror fires because GAS returns JSON, not image,
+  // but the GET request IS sent and processed before the redirect)
+  const img = new Image();
+  _pendingVioImgs.push(img);
+  img.onload = img.onerror = () => {
+    _pendingVioImgs.splice(_pendingVioImgs.indexOf(img), 1);
+    _showVioSent();
+    console.log('[violation] sent OK:', type);
+  };
+  img.src = url;
 }
 
 function _showVioSent() {
