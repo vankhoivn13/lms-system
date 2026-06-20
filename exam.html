@@ -878,12 +878,15 @@ async function checkFace() {
 // Violation logging to GAS (tiny GET request — no image payload)
 // ════════════════════════════════════════════════
 const _lastViolationLog = {};
+const _pendingVioImgs   = []; // keep global refs so browser doesn't GC before request finishes
+
 function logViolation(type, detail, severity) {
   if (!studentData || !examId) return;
-  // Debounce: don't spam GAS with the same type more than once per 30s
+  // Debounce per type: max once per 30s
   const now = Date.now();
   if (_lastViolationLog[type] && now - _lastViolationLog[type] < 30000) return;
   _lastViolationLog[type] = now;
+
   const url = GAS_URL
     + '?action=logViolation'
     + '&sid='    + encodeURIComponent(studentData.student_id)
@@ -891,8 +894,30 @@ function logViolation(type, detail, severity) {
     + '&type='   + encodeURIComponent(type)
     + '&detail=' + encodeURIComponent((detail || '').substring(0, 200))
     + '&sev='    + encodeURIComponent(severity || 'medium');
-  const img = new Image();
-  img.src = url; // fire-and-forget; onerror is expected (GAS returns JSON, not image)
+
+  console.log('[violation] sending:', type, url.length, 'chars');
+
+  // Primary: fetch no-cors (simple GET, no preflight)
+  fetch(url, { mode: 'no-cors', redirect: 'follow' })
+    .then(() => _showVioSent())
+    .catch(() => {
+      // Fallback: Image() trick (survives CORS but needs global ref to avoid GC)
+      const img = new Image();
+      _pendingVioImgs.push(img);
+      img.onload = img.onerror = () => {
+        _pendingVioImgs.splice(_pendingVioImgs.indexOf(img), 1);
+        _showVioSent();
+      };
+      img.src = url;
+    });
+}
+
+function _showVioSent() {
+  const label = document.getElementById('cam-label');
+  if (!label || submitted) return;
+  const prev = label.textContent;
+  label.textContent = '📤 Đã ghi vi phạm';
+  setTimeout(() => { if (label.textContent === '📤 Đã ghi vi phạm') label.textContent = prev || 'Đang giám sát'; }, 1500);
 }
 
 // ════════════════════════════════════════════════
