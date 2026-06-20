@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Phòng Thi — LMS</title>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <style>
   :root {
     --primary: #2563eb; --danger: #dc2626; --success: #16a34a;
@@ -520,13 +521,72 @@ function autoSubmit() {
 // ════════════════════════════════════════════════
 // Anti-cheat layer
 // ════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+// Auto-save answers to localStorage (backup)
+// ════════════════════════════════════════════════
+function autoSaveDraft() {
+  if (submitted) return;
+  try {
+    const draft = {
+      studentId: studentData?.student_id,
+      examId,
+      ts: Date.now(),
+      pdfAnswers: pdfMode ? pdfAnswers : null,
+      answers: pdfMode ? null : Object.fromEntries(
+        Object.entries(answers).map(([k,v]) => [k, v.answer || ''])
+      )
+    };
+    localStorage.setItem('lms_draft', JSON.stringify(draft));
+  } catch(e) {}
+}
+
+function buildSubmitPayload() {
+  const answerList = pdfMode
+    ? Object.entries(pdfAnswers).map(([qid, val]) => ({ questionId: qid, answer: val, keyMap: {}, timeSpent: 0 }))
+    : questions.map(q => ({
+        questionId: q.question_id,
+        answer:     answers[q.question_id]?.answer || '',
+        keyMap:     answers[q.question_id]?.keyMap || {},
+        timeSpent:  answers[q.question_id]?.timeSpent || 0
+      }));
+  return {
+    studentId: studentData.student_id,
+    examId,
+    violationCount,
+    webcamFolderUrl: '',
+    answers: answerList
+  };
+}
+
 function setupAntiCheat() {
 
-  // 1. Tab switch / window blur
+  // Auto-save draft every 20 seconds
+  setInterval(autoSaveDraft, 20000);
+
+  // 1. Tab switch → violation only (NOT submit)
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && !submitted) recordViolation('Chuyển tab');
   });
   window.addEventListener('blur', () => { if (!submitted) recordViolation('Rời cửa sổ'); });
+
+  // 2. Page close / navigate away → AUTO SUBMIT
+  window.addEventListener('pagehide', () => {
+    if (submitted) return;
+    submitted = true;
+    autoSaveDraft();
+    try {
+      const payload = buildSubmitPayload();
+      const url = GAS_URL + '?action=submitExam&args=' + encodeURIComponent(JSON.stringify([payload]));
+      fetch(url, { keepalive: true, redirect: 'follow' }).catch(() => {});
+    } catch(e) {}
+  });
+
+  window.addEventListener('beforeunload', (e) => {
+    if (!submitted) {
+      e.preventDefault();
+      e.returnValue = 'Bài thi sẽ tự động nộp khi bạn rời trang!';
+    }
+  });
 
   // 2. Fullscreen exit
   document.addEventListener('fullscreenchange', () => {
@@ -591,17 +651,61 @@ function requestFullscreen() {
 }
 
 // ════════════════════════════════════════════════
-// Webcam
+// Webcam + Face Detection
 // ════════════════════════════════════════════════
+let faceDetectionReady = false;
+let noFaceCount = 0; // consecutive no-face detections
+
 async function startWebcam() {
   try {
     webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
-    document.getElementById('exam-cam').srcObject = webcamStream;
-    // First snapshot after 5s
+    const vid = document.getElementById('exam-cam');
+    vid.srcObject = webcamStream;
+    vid.play().catch(() => {});
     setTimeout(takeSnapshot, 5000);
+    // Start face detection after webcam is ready
+    initFaceDetection();
   } catch (e) {
     document.getElementById('cam-label').textContent = 'Không có camera';
   }
+}
+
+async function initFaceDetection() {
+  try {
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    faceDetectionReady = true;
+    document.getElementById('cam-label').textContent = 'Đang giám sát';
+    // Check face every 4 seconds
+    setInterval(checkFace, 4000);
+  } catch (e) {
+    // Face detection unavailable — silently continue without it
+    console.warn('Face detection unavailable:', e.message);
+  }
+}
+
+async function checkFace() {
+  if (!faceDetectionReady || !webcamStream || submitted) return;
+  const video = document.getElementById('exam-cam');
+  if (video.readyState < 2) return;
+  try {
+    const detections = await faceapi.detectAllFaces(
+      video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 })
+    );
+    if (detections.length === 0) {
+      noFaceCount++;
+      if (noFaceCount >= 2) { // 2 consecutive misses (~8s) → violation
+        noFaceCount = 0;
+        recordViolation('Không nhìn vào camera / rời khỏi vị trí');
+        document.getElementById('cam-label').textContent = '⚠️ Không thấy mặt!';
+        setTimeout(() => {
+          if (!submitted) document.getElementById('cam-label').textContent = 'Đang giám sát';
+        }, 4000);
+      }
+    } else {
+      noFaceCount = 0;
+    }
+  } catch (e) { /* ignore detection errors */ }
 }
 
 function takeSnapshot() {
@@ -645,25 +749,9 @@ function submitExam() {
 
   document.getElementById('btn-submit').disabled = true;
   document.getElementById('btn-submit').textContent = '⏳ Đang nộp bài...';
+  localStorage.removeItem('lms_draft'); // clear draft on intentional submit
 
-  const answerList = pdfMode
-    ? Object.entries(pdfAnswers).map(([qid, val]) => ({
-        questionId: qid, answer: val, keyMap: {}, timeSpent: 0
-      }))
-    : questions.map(q => ({
-        questionId: q.question_id,
-        answer:     answers[q.question_id]?.answer || '',
-        keyMap:     answers[q.question_id]?.keyMap || {},
-        timeSpent:  answers[q.question_id]?.timeSpent || 0
-      }));
-
-  const payload = {
-    studentId: studentData.student_id,
-    examId: examId,
-    violationCount: violationCount,
-    webcamFolderUrl: '',
-    answers: answerList
-  };
+  const payload = buildSubmitPayload();
 
   gas('submitExam', payload).then(res => {
     if (res.success) {
