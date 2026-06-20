@@ -179,9 +179,14 @@
     <div id="student-bar"></div>
   </div>
   <div id="timer-bar">00:00</div>
-  <div id="violation-bar">
+  <div id="violation-bar" onclick="toggleViolationDetail()" title="Nhấn xem chi tiết" style="cursor:pointer;position:relative;">
     <span>⚠️ Vi phạm:</span>
     <span id="violation-count">0</span>
+    <span style="font-size:10px;opacity:.6;">▼</span>
+    <div id="violation-detail-popup" style="display:none;position:absolute;top:32px;right:0;background:#0f172a;border:1px solid #475569;border-radius:8px;padding:14px;min-width:240px;z-index:500;text-align:left;box-shadow:0 8px 24px rgba(0,0,0,.5);">
+      <div style="font-size:12px;font-weight:700;color:#f1f5f9;margin-bottom:8px;border-bottom:1px solid #334155;padding-bottom:6px;">📋 Chi tiết vi phạm</div>
+      <div id="violation-detail-list" style="font-size:12px;color:#cbd5e1;line-height:1.8;">Chưa có vi phạm</div>
+    </div>
   </div>
 </div>
 
@@ -229,9 +234,10 @@
   <div class="modal">
     <div class="modal-icon">⚠️</div>
     <h2>Cảnh báo vi phạm!</h2>
-    <p id="warning-msg">Bạn đã rời khỏi cửa sổ thi.<br>Hành động này đã được ghi lại.</p>
-    <div style="background:#fff1f2;border-radius:8px;padding:10px;margin-top:12px;font-size:13px;color:#dc2626;">
-      Vi phạm: <b id="warn-count">0</b>/3 — Vượt quá sẽ bị đánh dấu gian lận.
+    <p id="warning-msg">Hành động này đã được ghi lại.</p>
+    <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:12px;margin-top:12px;font-size:13px;color:#dc2626;">
+      <div style="margin-bottom:8px;">Tổng vi phạm: <b id="warn-count">0</b> lần — Từ 3 lần sẽ bị đánh dấu gian lận</div>
+      <div id="warn-detail-list" style="line-height:2;font-size:12px;color:#991b1b;"></div>
     </div>
     <div class="modal-btns">
       <button class="btn btn-primary" onclick="closeWarning()">Tôi hiểu, tiếp tục thi</button>
@@ -297,9 +303,10 @@ let examId        = null;
 let examData      = null;
 let questions     = [];    // shuffled from server
 let answers       = {};    // { questionId: { answer, keyMap, timeSpent, focusStart } }
-let pdfMode       = false; // true = PDF exam, students fill numbered boxes
-let pdfAnswers    = {};    // { 'Q1': '...', 'Q2': '...' }
+let pdfMode       = false;
+let pdfAnswers    = {};
 let timerSec      = 0;
+let violationLog  = {};    // { 'Chuyển tab': 2, 'Không nhìn camera': 1, ... }
 let timerInterval = null;
 let violationCount = 0;
 let snapshotIndex  = 0;
@@ -588,13 +595,43 @@ function setupAntiCheat() {
   // Auto-save draft every 20 seconds
   setInterval(autoSaveDraft, 20000);
 
-  // 1. Tab switch → violation only (NOT submit)
+  // 1. Tab switch / visibility change
+  let lastHidden = 0;
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && !submitted) recordViolation('Chuyển tab');
+    if (document.hidden && !submitted) {
+      lastHidden = Date.now();
+      recordViolation('Chuyển tab / tắt màn hình');
+    } else if (!document.hidden && !submitted) {
+      // Came back → force fullscreen immediately
+      setTimeout(requestFullscreen, 200);
+    }
   });
-  window.addEventListener('blur', () => { if (!submitted) recordViolation('Rời cửa sổ'); });
 
-  // 2. Page close / navigate away → AUTO SUBMIT
+  // Window blur (switch app/window) — debounce to avoid fullscreen transition false positives
+  let blurTimer = null;
+  window.addEventListener('blur', () => {
+    if (submitted) return;
+    blurTimer = setTimeout(() => {
+      if (document.hidden) return; // already handled by visibilitychange
+      recordViolation('Rời cửa sổ thi');
+      requestFullscreen();
+    }, 500);
+  });
+  window.addEventListener('focus', () => {
+    clearTimeout(blurTimer);
+    if (!submitted) requestFullscreen();
+  });
+
+  // 2. Fullscreen exit → warn + re-enter immediately
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && !submitted) {
+      recordViolation('Thoát toàn màn hình');
+      // Re-enter fullscreen after brief delay (browser needs user gesture context)
+      setTimeout(requestFullscreen, 300);
+    }
+  });
+
+  // 3. Page close / navigate away → AUTO SUBMIT
   window.addEventListener('pagehide', () => {
     if (submitted) return;
     submitted = true;
@@ -613,54 +650,71 @@ function setupAntiCheat() {
     }
   });
 
-  // 2. Fullscreen exit
-  document.addEventListener('fullscreenchange', () => {
-    if (!document.fullscreenElement && !submitted) {
-      recordViolation('Thoát toàn màn hình');
-      requestFullscreen();
-    }
-  });
-
-  // 3. Disable right-click
+  // 4. Disable right-click
   document.addEventListener('contextmenu', e => e.preventDefault());
 
-  // 4. Disable Ctrl+C, Ctrl+V, Ctrl+A, Ctrl+U, F12, PrintScreen
+  // 5. Disable Ctrl+C, Ctrl+V, Ctrl+A, Ctrl+U, F12, PrintScreen
   document.addEventListener('keydown', e => {
     const ctrl = e.ctrlKey || e.metaKey;
     const blocked = (ctrl && ['c','v','a','u','s','p'].includes(e.key.toLowerCase())) ||
                     e.key === 'F12' || e.key === 'PrintScreen';
     if (blocked) e.preventDefault();
-
-    // Escape in fullscreen — try to stay
-    if (e.key === 'Escape') requestFullscreen();
+    if (e.key === 'Escape' && !submitted) { e.preventDefault(); requestFullscreen(); }
   });
 
-  // 5. Webcam snapshot every 45 seconds
+  // 6. Webcam snapshot every 45 seconds
   snapshotInterval = setInterval(() => {
     if (!submitted) takeSnapshot();
   }, 45000);
 }
 
+function renderViolationDetail() {
+  const entries = Object.entries(violationLog);
+  if (!entries.length) return '<span style="color:#94a3b8">Chưa có vi phạm</span>';
+  return entries.map(([k, v]) =>
+    `<div>🔴 <b>${v} lần</b> — ${k}</div>`
+  ).join('');
+}
+
 function recordViolation(reason) {
   if (submitted) return;
   violationCount++;
-  document.getElementById('violation-count').textContent = violationCount;
+  violationLog[reason] = (violationLog[reason] || 0) + 1;
 
-  // Flash
+  // Update topbar count
+  document.getElementById('violation-count').textContent = violationCount;
+  // Update popup detail
+  document.getElementById('violation-detail-list').innerHTML = renderViolationDetail();
+
+  // Flash border
   const flash = document.getElementById('violation-flash');
   flash.classList.add('flash');
   setTimeout(() => flash.classList.remove('flash'), 600);
 
-  // Show warning if <= 3, show flagged modal if > 3
-  if (violationCount >= 3) {
+  if (violationCount > 3) {
     showFlaggedModal();
   } else {
     document.getElementById('warning-msg').textContent =
-      `Bạn đã: ${reason}. Hành động này đã được ghi lại vào hồ sơ.`;
+      `⚠️ Lỗi: ${reason}. Hành động đã được ghi lại.`;
     document.getElementById('warn-count').textContent = violationCount;
+    // Show detailed breakdown in warning modal
+    document.getElementById('warn-detail-list').innerHTML = renderViolationDetail();
     openModal('warning-modal');
   }
 }
+
+function toggleViolationDetail() {
+  const popup = document.getElementById('violation-detail-popup');
+  popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close popup when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#violation-bar')) {
+    const popup = document.getElementById('violation-detail-popup');
+    if (popup) popup.style.display = 'none';
+  }
+});
 
 function closeWarning() {
   closeModal('warning-modal');
@@ -701,10 +755,9 @@ async function initFaceDetection() {
     await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
     faceDetectionReady = true;
     document.getElementById('cam-label').textContent = 'Đang giám sát';
-    // Check face every 4 seconds
-    setInterval(checkFace, 4000);
+    // Check every 1.5s → 2 consecutive misses = ~3s without face = violation
+    setInterval(checkFace, 1500);
   } catch (e) {
-    // Face detection unavailable — silently continue without it
     console.warn('Face detection unavailable:', e.message);
   }
 }
@@ -715,22 +768,24 @@ async function checkFace() {
   if (video.readyState < 2) return;
   try {
     const detections = await faceapi.detectAllFaces(
-      video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 })
+      video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.35 })
     );
     if (detections.length === 0) {
       noFaceCount++;
-      if (noFaceCount >= 2) { // 2 consecutive misses (~8s) → violation
+      document.getElementById('cam-label').textContent =
+        noFaceCount >= 1 ? `⚠️ Không thấy mặt (${noFaceCount}s...)` : 'Đang giám sát';
+      if (noFaceCount >= 2) { // ~3s not looking → violation
         noFaceCount = 0;
-        recordViolation('Không nhìn vào camera / rời khỏi vị trí');
-        document.getElementById('cam-label').textContent = '⚠️ Không thấy mặt!';
+        recordViolation('Không nhìn vào màn hình / rời khỏi vị trí');
         setTimeout(() => {
           if (!submitted) document.getElementById('cam-label').textContent = 'Đang giám sát';
-        }, 4000);
+        }, 3000);
       }
     } else {
       noFaceCount = 0;
+      document.getElementById('cam-label').textContent = 'Đang giám sát';
     }
-  } catch (e) { /* ignore detection errors */ }
+  } catch (e) { /* ignore */ }
 }
 
 function takeSnapshot() {
