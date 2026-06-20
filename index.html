@@ -130,11 +130,8 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbxeWng8djn2nsp26i4CinFZ
 const EXAM_URL = 'exam.html';
 
 async function gas(action, ...args) {
-  const resp = await fetch(GAS_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action, args }),
-    redirect: 'follow'
-  });
+  const url = GAS_URL + '?action=' + encodeURIComponent(action) + '&args=' + encodeURIComponent(JSON.stringify(args));
+  const resp = await fetch(url, { redirect: 'follow' });
   const text = await resp.text();
   try { return JSON.parse(text); } catch(e) { return { success: false, error: text }; }
 }
