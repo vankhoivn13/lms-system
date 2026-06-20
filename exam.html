@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phòng Thi — LMS</title>
+<style>
+  :root {
+    --primary: #2563eb; --danger: #dc2626; --success: #16a34a;
+    --warning: #d97706; --border: #e2e8f0; --text: #1e293b; --bg: #f1f5f9;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; user-select: none; -webkit-user-select: none; }
+
+  /* ── Top bar ── */
+  #topbar {
+    height: 52px; background: #1e293b; color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; flex-shrink: 0; z-index: 100; position: relative;
+  }
+  #exam-title-bar { font-size: 14px; font-weight: 600; }
+  #student-bar    { font-size: 12px; color: #94a3b8; }
+  #timer-bar {
+    font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
+    background: #334155; padding: 4px 16px; border-radius: 20px;
+  }
+  #timer-bar.warn  { background: #92400e; color: #fde68a; }
+  #timer-bar.crit  { background: #7f1d1d; color: #fca5a5; animation: blink .8s step-end infinite; }
+  @keyframes blink { 50% { opacity: .5; } }
+
+  #violation-bar { font-size: 12px; color: #fca5a5; display: flex; align-items: center; gap: 6px; }
+
+  /* ── Split layout ── */
+  #split { display: flex; height: calc(100vh - 52px); overflow: hidden; }
+
+  #pdf-pane {
+    flex: 0 0 50%; border-right: 3px solid var(--border);
+    display: flex; flex-direction: column; background: #e2e8f0;
+  }
+  #pdf-pane .pane-header {
+    background: #334155; color: #94a3b8; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .5px; padding: 6px 12px; flex-shrink: 0;
+  }
+  #pdf-frame {
+    flex: 1; border: none; pointer-events: none;
+    /* Disable text selection and download via CSS */
+    -webkit-touch-callout: none; user-select: none;
+  }
+  .pdf-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 5; background: transparent;
+  }
+
+  #quiz-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #quiz-pane .pane-header {
+    background: #f8fafc; border-bottom: 1px solid var(--border);
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+    padding: 6px 16px; color: #64748b; flex-shrink: 0;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #quiz-scroll { flex: 1; overflow-y: auto; padding: 20px 16px; }
+
+  /* ── Questions ── */
+  .q-block {
+    background: #fff; border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 16px; margin-bottom: 16px; transition: border-color .2s;
+  }
+  .q-block:focus-within { border-color: var(--primary); }
+  .q-block.answered { border-color: #86efac; background: #f0fdf4; }
+  .q-num-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .q-num { font-size: 12px; font-weight: 700; color: var(--primary); }
+  .q-type-tag { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .mc-tag { background: #dbeafe; color: var(--primary); }
+  .sa-tag { background: #f0fdf4; color: var(--success); }
+  .q-text { font-size: 14px; line-height: 1.6; margin-bottom: 12px; }
+
+  /* MC options */
+  .mc-options { display: flex; flex-direction: column; gap: 8px; }
+  .mc-option {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+    cursor: pointer; transition: all .15s; font-size: 13px;
+  }
+  .mc-option:hover { border-color: var(--primary); background: #eff6ff; }
+  .mc-option input[type=radio] { accent-color: var(--primary); width: 15px; height: 15px; flex-shrink: 0; }
+  .mc-option.selected { border-color: var(--primary); background: #dbeafe; }
+
+  /* SA */
+  .sa-textarea {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 13px; resize: vertical; min-height: 80px;
+    font-family: inherit; color: var(--text);
+  }
+  .sa-textarea:focus { outline: none; border-color: var(--primary); }
+
+  /* Progress bar */
+  #progress-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #64748b; }
+  #answer-progress { height: 6px; flex: 1; background: var(--border); border-radius: 3px; overflow: hidden; }
+  #answer-fill     { height: 100%; background: var(--success); transition: width .3s; }
+
+  /* Submit */
+  #submit-zone { padding: 16px; border-top: 1px solid var(--border); background: #f8fafc; flex-shrink: 0; }
+  #btn-submit {
+    width: 100%; padding: 12px; background: var(--success); color: #fff;
+    border: none; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  #btn-submit:hover { background: #15803d; }
+  #btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Webcam corner */
+  #cam-corner {
+    position: fixed; bottom: 16px; left: 16px; z-index: 200;
+    background: #000; border-radius: 10px; overflow: hidden;
+    border: 2px solid #334155; width: 140px; height: 105px;
+  }
+  #cam-corner video { width: 100%; height: 100%; object-fit: cover; }
+  #cam-corner canvas { display: none; }
+  #cam-label {
+    position: absolute; bottom: 4px; left: 0; right: 0; text-align: center;
+    font-size: 9px; color: rgba(255,255,255,.7);
+  }
+  #cam-dot {
+    position: absolute; top: 6px; right: 6px; width: 8px; height: 8px;
+    background: #ef4444; border-radius: 50%; animation: blink 1.5s step-end infinite;
+  }
+
+  /* Modals */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 500; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 28px; width: 460px; max-width: 95vw; text-align: center; }
+  .modal .modal-icon { font-size: 52px; margin-bottom: 12px; }
+  .modal h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .modal p  { font-size: 14px; color: #64748b; line-height: 1.6; }
+  .modal-btns { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+  .btn { padding: 10px 24px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-danger  { background: var(--danger);  color: #fff; }
+  .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+
+  /* Warning flash */
+  #violation-flash {
+    position: fixed; inset: 0; background: rgba(220,38,38,.15);
+    pointer-events: none; z-index: 400; opacity: 0; transition: opacity .3s;
+  }
+  #violation-flash.flash { opacity: 1; }
+
+  /* Loading overlay */
+  #loading-overlay {
+    position: fixed; inset: 0; background: rgba(255,255,255,.95);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 600; gap: 16px;
+  }
+  #loading-overlay .spinner { width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-overlay p { font-size: 15px; color: #64748b; }
+
+  /* Result screen */
+  #result-screen { display: none; position: fixed; inset: 0; background: #fff; z-index: 700; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+  #result-screen.show { display: flex; }
+  .result-card { text-align: center; max-width: 400px; padding: 32px; }
+  .result-card .big-score { font-size: 64px; font-weight: 900; color: var(--primary); line-height: 1; }
+  .result-card .score-label { font-size: 16px; color: #64748b; margin-top: 4px; }
+  .result-card .result-msg { font-size: 14px; color: #64748b; margin-top: 16px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p>Đang tải đề thi, vui lòng chờ...</p>
+</div>
+
+<!-- Top bar -->
+<div id="topbar">
+  <div>
+    <div id="exam-title-bar">Đang tải...</div>
+    <div id="student-bar"></div>
+  </div>
+  <div id="timer-bar">00:00</div>
+  <div id="violation-bar">
+    <span>⚠️ Vi phạm:</span>
+    <span id="violation-count">0</span>
+  </div>
+</div>
+
+<!-- Split layout -->
+<div id="split">
+  <!-- PDF pane -->
+  <div id="pdf-pane" style="position:relative;">
+    <div class="pane-header">📄 Tài liệu đề thi (chỉ đọc)</div>
+    <div style="position:relative;flex:1;display:flex;flex-direction:column;">
+      <iframe id="pdf-frame" src="about:blank" style="flex:1;" sandbox="allow-scripts allow-same-origin"></iframe>
+      <!-- Transparent overlay to block right-click and text selection on PDF -->
+      <div class="pdf-overlay" oncontextmenu="return false;" ondragstart="return false;"></div>
+    </div>
+  </div>
+
+  <!-- Quiz pane -->
+  <div id="quiz-pane">
+    <div class="pane-header">
+      <span>📝 Bài làm</span>
+      <div id="progress-row">
+        <span id="answered-count">0/0</span>
+        <div id="answer-progress"><div id="answer-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div id="quiz-scroll"></div>
+    <div id="submit-zone">
+      <button id="btn-submit" onclick="confirmSubmit()">📤 Nộp bài</button>
+    </div>
+  </div>
+</div>
+
+<!-- Webcam corner -->
+<div id="cam-corner">
+  <video id="exam-cam" autoplay playsinline muted></video>
+  <canvas id="exam-canvas"></canvas>
+  <div id="cam-dot"></div>
+  <div id="cam-label">Đang giám sát</div>
+</div>
+
+<!-- Violation flash -->
+<div id="violation-flash"></div>
+
+<!-- Warning modal -->
+<div class="modal-overlay" id="warning-modal">
+  <div class="modal">
+    <div class="modal-icon">⚠️</div>
+    <h2>Cảnh báo vi phạm!</h2>
+    <p id="warning-msg">Bạn đã rời khỏi cửa sổ thi.<br>Hành động này đã được ghi lại.</p>
+    <div style="background:#fff1f2;border-radius:8px;padding:10px;margin-top:12px;font-size:13px;color:#dc2626;">
+      Vi phạm: <b id="warn-count">0</b>/3 — Vượt quá sẽ bị đánh dấu gian lận.
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" onclick="closeWarning()">Tôi hiểu, tiếp tục thi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Submit confirm modal -->
+<div class="modal-overlay" id="submit-modal">
+  <div class="modal">
+    <div class="modal-icon">📤</div>
+    <h2>Xác nhận nộp bài?</h2>
+    <p id="submit-summary">Bạn đã trả lời <b id="ans-done">0</b>/<b id="ans-total">0</b> câu hỏi.<br>Sau khi nộp bài sẽ không thể sửa.</p>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="closeModal('submit-modal')">Quay lại</button>
+      <button class="btn btn-danger"  onclick="submitExam()">✅ Nộp bài ngay</button>
+    </div>
+  </div>
+</div>
+
+<!-- Flagged modal -->
+<div class="modal-overlay" id="flagged-modal">
+  <div class="modal">
+    <div class="modal-icon">🚨</div>
+    <h2 style="color:#dc2626">Bài thi bị gắn cờ!</h2>
+    <p>Bạn đã vi phạm quy định thi quá nhiều lần. Bài thi của bạn vẫn được nộp nhưng <b>bị đánh dấu gian lận</b> và sẽ được giáo viên xem xét.</p>
+    <div class="modal-btns">
+      <button class="btn btn-primary" onclick="closeModal('flagged-modal')">Đã hiểu</button>
+    </div>
+  </div>
+</div>
+
+<!-- Result screen -->
+<div id="result-screen">
+  <div style="font-size:48px;">🎉</div>
+  <div class="result-card">
+    <div class="big-score" id="final-score">—</div>
+    <div class="score-label" id="final-score-label">điểm</div>
+    <div class="result-msg" id="result-msg"></div>
+    <button class="btn btn-primary" style="margin-top:20px;width:100%;" onclick="window.location.href=window.location.href.split('?')[0]+'?page=login'">
+      🏠 Về trang chủ
+    </button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+// GAS API helper (fetch-based, for GitHub Pages)
+// ════════════════════════════════════════════════
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxeWng8djn2nsp26i4CinFZGlsQlGOFiUF4UAKO56uDWlAfbYlOTcjbvyHXiEPTda8K/exec';
+async function gas(action, ...args) {
+  const resp = await fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action, args }),
+    redirect: 'follow'
+  });
+  const text = await resp.text();
+  try { return JSON.parse(text); } catch(e) { return { success: false, error: text }; }
+}
+
+// State
+// ════════════════════════════════════════════════
+let studentData   = null;
+let examId        = null;
+let examData      = null;
+let questions     = [];    // shuffled from server
+let answers       = {};    // { questionId: { answer, keyMap, timeSpent, focusStart } }
+let timerSec      = 0;
+let timerInterval = null;
+let violationCount = 0;
+let snapshotIndex  = 0;
+let snapshotInterval = null;
+let webcamStream  = null;
+let submitted     = false;
+let questionFocusStart = {};   // questionId -> Date
+
+// ════════════════════════════════════════════════
+// Boot
+// ════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  studentData = JSON.parse(sessionStorage.getItem('lms_student') || 'null');
+  examId      = sessionStorage.getItem('lms_exam_id');
+
+  if (!studentData || !examId) {
+    window.location.href = window.location.href.split('?')[0] + '?page=login';
+    return;
+  }
+
+  document.getElementById('student-bar').textContent =
+    `${studentData.name} — ${studentData.class}`;
+
+  loadExam();
+  setupAntiCheat();
+  startWebcam();
+});
+
+// ════════════════════════════════════════════════
+// Load exam
+// ════════════════════════════════════════════════
+async function loadExam() {
+  try {
+    const res = await gas('getExamForStudent', examId, studentData.student_id);
+    if (!res.success) { alert('Lỗi tải đề thi: ' + res.error); return; }
+    examData  = res.data.exam;
+    questions = res.data.questions;
+
+    document.getElementById('exam-title-bar').textContent = examData.title;
+    timerSec = parseInt(examData.time_limit) * 60;
+    startTimer();
+    renderQuestions();
+    loadPdf();
+
+    requestFullscreen();
+    document.getElementById('loading-overlay').style.display = 'none';
+  } catch(e) { alert('Lỗi tải đề thi: ' + e.message); }
+}
+
+function loadPdf() {
+  if (examData.pdf_url) {
+    // Use Google Drive preview URL (no download button)
+    const url = examData.pdf_url.includes('preview')
+      ? examData.pdf_url
+      : 'https://drive.google.com/file/d/' + examData.pdf_url.match(/\/d\/([^/]+)/)?.[1] + '/preview';
+    document.getElementById('pdf-frame').src = url;
+  }
+}
+
+// ════════════════════════════════════════════════
+// Render questions
+// ════════════════════════════════════════════════
+function renderQuestions() {
+  const container = document.getElementById('quiz-scroll');
+  container.innerHTML = questions.map((q, i) => buildQuestion(q, i)).join('');
+  updateProgress();
+}
+
+function buildQuestion(q, i) {
+  const isMC = q.type === 'mc';
+  if (!answers[q.question_id]) answers[q.question_id] = { answer: '', keyMap: q.key_map || {}, timeSpent: 0, focusStart: null };
+
+  const optionsHTML = isMC
+    ? `<div class="mc-options">${q.options.map(opt => `
+        <label class="mc-option" id="opt-${q.question_id}-${opt.key}"
+               onclick="selectMC('${q.question_id}','${opt.key}')">
+          <input type="radio" name="q_${q.question_id}" value="${opt.key}">
+          <span><b>${opt.key}.</b> ${opt.text}</span>
+        </label>`).join('')}
+      </div>`
+    : `<textarea class="sa-textarea" id="sa-${q.question_id}"
+         placeholder="Nhập câu trả lời của bạn..."
+         oninput="updateSA('${q.question_id}', this.value)"
+         onfocus="onQFocus('${q.question_id}')"
+         onblur="onQBlur('${q.question_id}')"></textarea>`;
+
+  return `<div class="q-block" id="qblock-${q.question_id}"
+              onfocus="onQFocus('${q.question_id}')" onblur="onQBlur('${q.question_id}')" tabindex="-1">
+    <div class="q-num-row">
+      <span class="q-num">Câu ${i+1}</span>
+      <span class="q-type-tag ${isMC?'mc-tag':'sa-tag'}">${isMC?'Trắc nghiệm':'Tự luận'}</span>
+    </div>
+    <div class="q-text">${q.question_text}</div>
+    ${optionsHTML}
+  </div>`;
+}
+
+function selectMC(questionId, key) {
+  onQFocus(questionId);
+  answers[questionId].answer = key;
+
+  // Visual update
+  const q = questions.find(q => q.question_id === questionId);
+  if (q) {
+    q.options.forEach(opt => {
+      const el = document.getElementById('opt-' + questionId + '-' + opt.key);
+      if (el) el.classList.toggle('selected', opt.key === key);
+    });
+  }
+
+  // Check radio
+  const radio = document.querySelector(`input[name="q_${questionId}"][value="${key}"]`);
+  if (radio) radio.checked = true;
+
+  document.getElementById('qblock-' + questionId)?.classList.add('answered');
+  onQBlur(questionId);
+  updateProgress();
+}
+
+function updateSA(questionId, value) {
+  answers[questionId].answer = value;
+  const block = document.getElementById('qblock-' + questionId);
+  if (block) block.classList.toggle('answered', value.trim().length > 0);
+  updateProgress();
+}
+
+function updateProgress() {
+  const total    = questions.length;
+  const answered = Object.values(answers).filter(a => a.answer && a.answer.trim() !== '').length;
+  document.getElementById('answered-count').textContent = `${answered}/${total}`;
+  document.getElementById('answer-fill').style.width = total ? (answered / total * 100) + '%' : '0%';
+}
+
+// ════════════════════════════════════════════════
+// Time tracking per question
+// ════════════════════════════════════════════════
+function onQFocus(qId) {
+  if (!answers[qId]) return;
+  answers[qId].focusStart = Date.now();
+}
+
+function onQBlur(qId) {
+  if (!answers[qId] || !answers[qId].focusStart) return;
+  answers[qId].timeSpent += Math.floor((Date.now() - answers[qId].focusStart) / 1000);
+  answers[qId].focusStart = null;
+}
+
+// ════════════════════════════════════════════════
+// Timer
+// ════════════════════════════════════════════════
+function startTimer() {
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timerSec--;
+    updateTimerDisplay();
+    if (timerSec <= 0) { clearInterval(timerInterval); autoSubmit(); }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(Math.abs(timerSec) / 60).toString().padStart(2, '0');
+  const s = (Math.abs(timerSec) % 60).toString().padStart(2, '0');
+  const el = document.getElementById('timer-bar');
+  el.textContent = m + ':' + s;
+  el.classList.toggle('warn', timerSec <= 300 && timerSec > 60);
+  el.classList.toggle('crit', timerSec <= 60 && timerSec > 0);
+}
+
+function autoSubmit() {
+  if (submitted) return;
+  alert('⏰ Hết giờ! Bài thi tự động nộp.');
+  submitExam();
+}
+
+// ════════════════════════════════════════════════
+// Anti-cheat layer
+// ════════════════════════════════════════════════
+function setupAntiCheat() {
+
+  // 1. Tab switch / window blur
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && !submitted) recordViolation('Chuyển tab');
+  });
+  window.addEventListener('blur', () => { if (!submitted) recordViolation('Rời cửa sổ'); });
+
+  // 2. Fullscreen exit
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && !submitted) {
+      recordViolation('Thoát toàn màn hình');
+      requestFullscreen();
+    }
+  });
+
+  // 3. Disable right-click
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
+  // 4. Disable Ctrl+C, Ctrl+V, Ctrl+A, Ctrl+U, F12, PrintScreen
+  document.addEventListener('keydown', e => {
+    const ctrl = e.ctrlKey || e.metaKey;
+    const blocked = (ctrl && ['c','v','a','u','s','p'].includes(e.key.toLowerCase())) ||
+                    e.key === 'F12' || e.key === 'PrintScreen';
+    if (blocked) e.preventDefault();
+
+    // Escape in fullscreen — try to stay
+    if (e.key === 'Escape') requestFullscreen();
+  });
+
+  // 5. Webcam snapshot every 45 seconds
+  snapshotInterval = setInterval(() => {
+    if (!submitted) takeSnapshot();
+  }, 45000);
+}
+
+function recordViolation(reason) {
+  if (submitted) return;
+  violationCount++;
+  document.getElementById('violation-count').textContent = violationCount;
+
+  // Flash
+  const flash = document.getElementById('violation-flash');
+  flash.classList.add('flash');
+  setTimeout(() => flash.classList.remove('flash'), 600);
+
+  // Show warning if <= 3, show flagged modal if > 3
+  if (violationCount >= 3) {
+    showFlaggedModal();
+  } else {
+    document.getElementById('warning-msg').textContent =
+      `Bạn đã: ${reason}. Hành động này đã được ghi lại vào hồ sơ.`;
+    document.getElementById('warn-count').textContent = violationCount;
+    openModal('warning-modal');
+  }
+}
+
+function closeWarning() {
+  closeModal('warning-modal');
+  requestFullscreen();
+}
+
+function showFlaggedModal() { openModal('flagged-modal'); }
+
+function requestFullscreen() {
+  const el = document.documentElement;
+  if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+}
+
+// ════════════════════════════════════════════════
+// Webcam
+// ════════════════════════════════════════════════
+async function startWebcam() {
+  try {
+    webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+    document.getElementById('exam-cam').srcObject = webcamStream;
+    // First snapshot after 5s
+    setTimeout(takeSnapshot, 5000);
+  } catch (e) {
+    document.getElementById('cam-label').textContent = 'Không có camera';
+  }
+}
+
+function takeSnapshot() {
+  if (!webcamStream) return;
+  const video  = document.getElementById('exam-cam');
+  const canvas = document.getElementById('exam-canvas');
+  canvas.width  = 320;
+  canvas.height = 240;
+  canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
+  const b64 = canvas.toDataURL('image/jpeg', 0.7);
+  snapshotIndex++;
+  gas('saveSnapshot', b64, studentData.student_id, examId, snapshotIndex).catch(()=>{});
+}
+
+// ════════════════════════════════════════════════
+// Submit
+// ════════════════════════════════════════════════
+function confirmSubmit() {
+  if (submitted) return;
+  const total    = questions.length;
+  const answered = Object.values(answers).filter(a => a.answer && a.answer.trim() !== '').length;
+  document.getElementById('ans-done').textContent  = answered;
+  document.getElementById('ans-total').textContent = total;
+  openModal('submit-modal');
+}
+
+function submitExam() {
+  if (submitted) return;
+  submitted = true;
+  closeModal('submit-modal');
+  clearInterval(timerInterval);
+  clearInterval(snapshotInterval);
+
+  // Finalize time for any currently focused question
+  Object.keys(answers).forEach(qId => {
+    if (answers[qId].focusStart) onQBlur(qId);
+  });
+
+  document.getElementById('btn-submit').disabled = true;
+  document.getElementById('btn-submit').textContent = '⏳ Đang nộp bài...';
+
+  const payload = {
+    studentId: studentData.student_id,
+    examId: examId,
+    violationCount: violationCount,
+    webcamFolderUrl: '',
+    answers: questions.map(q => ({
+      questionId: q.question_id,
+      answer:     answers[q.question_id]?.answer || '',
+      keyMap:     answers[q.question_id]?.keyMap || {},
+      timeSpent:  answers[q.question_id]?.timeSpent || 0
+    }))
+  };
+
+  gas('submitExam', payload).then(res => {
+    if (res.success) {
+      showResult(res.data);
+      if (webcamStream) webcamStream.getTracks().forEach(t => t.stop());
+      sessionStorage.removeItem('lms_student');
+      sessionStorage.removeItem('lms_exam_id');
+    } else {
+      alert('Lỗi nộp bài: ' + res.error);
+      document.getElementById('btn-submit').disabled = false;
+      document.getElementById('btn-submit').textContent = '📤 Nộp bài';
+      submitted = false;
+    }
+  }).catch(e => {
+    alert('Lỗi kết nối khi nộp bài: ' + e.message);
+    submitted = false;
+    document.getElementById('btn-submit').disabled = false;
+    document.getElementById('btn-submit').textContent = '📤 Nộp bài';
+  });
+}
+
+function showResult(data) {
+  const screen = document.getElementById('result-screen');
+  screen.classList.add('show');
+
+  const scoreEl = document.getElementById('final-score');
+  const pct = data.max_score > 0 ? Math.round(data.total_score / data.max_score * 100) : 0;
+
+  scoreEl.textContent = `${data.total_score}/${data.max_score}`;
+  document.getElementById('final-score-label').textContent =
+    `câu đúng (${pct}%) — Trắc nghiệm`;
+
+  let msg = '';
+  if (data.flagged) {
+    msg = `<span style="color:#dc2626">⚠️ Bài thi của bạn bị đánh dấu vi phạm và sẽ được giáo viên xem xét.</span><br><br>`;
+  }
+  msg += `Câu tự luận (nếu có) sẽ được giáo viên chấm và cập nhật điểm sau.<br>
+          Mã nộp bài: <code>${data.submission_id}</code>`;
+  document.getElementById('result-msg').innerHTML = msg;
+
+  if (pct >= 80) scoreEl.style.color = '#16a34a';
+  else if (pct >= 50) scoreEl.style.color = '#d97706';
+  else scoreEl.style.color = '#dc2626';
+}
+
+// ════════════════════════════════════════════════
+// Modal helpers
+// ════════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// ════════════════════════════════════════════════
+// Block copy/paste on page text (belt-and-suspenders)
+// ════════════════════════════════════════════════
+document.addEventListener('copy',  e => e.preventDefault());
+document.addEventListener('paste', e => e.preventDefault());
+document.addEventListener('cut',   e => e.preventDefault());
+</script>
+</body>
+</html>
