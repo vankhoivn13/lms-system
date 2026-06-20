@@ -630,6 +630,8 @@ function setupAntiCheat() {
 
   // 3. Page close / navigate away → AUTO SUBMIT
   window.addEventListener('pagehide', () => {
+    // Always release camera immediately so other pages can use it
+    if (webcamStream) { webcamStream.getTracks().forEach(t => t.stop()); webcamStream = null; }
     if (submitted) return;
     submitted = true;
     autoSaveDraft();
