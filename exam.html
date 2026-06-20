@@ -169,7 +169,10 @@
 <!-- Loading -->
 <div id="loading-overlay">
   <div class="spinner"></div>
-  <p>Đang tải đề thi, vui lòng chờ...</p>
+  <p id="loading-msg">Đang tải đề thi, vui lòng chờ...</p>
+  <button id="btn-start-exam" onclick="startExamFullscreen()" style="display:none;padding:14px 36px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;">
+    🖥️ Nhấn để vào toàn màn hình & bắt đầu thi
+  </button>
 </div>
 
 <!-- Top bar -->
@@ -353,8 +356,10 @@ async function loadExam() {
     else renderQuestions();
     loadPdf();
 
-    requestFullscreen();
-    document.getElementById('loading-overlay').style.display = 'none';
+    // Show "click to enter fullscreen" button instead of auto-requesting
+    document.getElementById('loading-msg').textContent = '✅ Đề thi đã tải xong. Nhấn nút bên dưới để bắt đầu.';
+    document.querySelector('.spinner').style.display = 'none';
+    document.getElementById('btn-start-exam').style.display = 'block';
   } catch(e) { alert('Lỗi tải đề thi: ' + e.message); }
 }
 
@@ -729,6 +734,11 @@ function requestFullscreen() {
   else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 }
 
+function startExamFullscreen() {
+  requestFullscreen();
+  document.getElementById('loading-overlay').style.display = 'none';
+}
+
 // ════════════════════════════════════════════════
 // Webcam + Face Detection
 // ════════════════════════════════════════════════
@@ -753,13 +763,24 @@ async function initFaceDetection() {
   try {
     const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
     await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
     faceDetectionReady = true;
     document.getElementById('cam-label').textContent = 'Đang giám sát';
-    // Check every 1.5s → 2 consecutive misses = ~3s without face = violation
+    // Check every 1.5s → 2 consecutive misses ≈ 3s without eyes detected = violation
     setInterval(checkFace, 1500);
   } catch (e) {
-    console.warn('Face detection unavailable:', e.message);
+    console.warn('Eye detection unavailable:', e.message);
   }
+}
+
+// Eye Aspect Ratio: measures how open/visible the eye is
+// EAR = (vertical_dist1 + vertical_dist2) / (2 * horizontal_dist)
+// EAR < 0.15 → eye closed or not visible (looking away)
+function eyeAspectRatio(eye) {
+  const d = (a, b) => Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+  const vertical = (d(eye[1], eye[5]) + d(eye[2], eye[4])) / 2;
+  const horizontal = d(eye[0], eye[3]);
+  return horizontal > 0 ? vertical / horizontal : 0;
 }
 
 async function checkFace() {
@@ -767,19 +788,31 @@ async function checkFace() {
   const video = document.getElementById('exam-cam');
   if (video.readyState < 2) return;
   try {
-    const detections = await faceapi.detectAllFaces(
-      video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.35 })
-    );
-    if (detections.length === 0) {
+    const result = await faceapi
+      .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.45 }))
+      .withFaceLandmarks(true); // true = use tiny landmark net
+
+    let eyesVisible = false;
+    if (result) {
+      const lm = result.landmarks;
+      const leftEAR  = eyeAspectRatio(lm.getLeftEye());
+      const rightEAR = eyeAspectRatio(lm.getRightEye());
+      const avgEAR   = (leftEAR + rightEAR) / 2;
+      // Face must be big enough (not tiny/distant) AND eyes must be open
+      const box = result.detection.box;
+      const faceSize = (box.width * box.height) / (video.videoWidth * video.videoHeight);
+      eyesVisible = avgEAR > 0.15 && faceSize > 0.015;
+    }
+
+    if (!eyesVisible) {
       noFaceCount++;
-      document.getElementById('cam-label').textContent =
-        noFaceCount >= 1 ? `⚠️ Không thấy mặt (${noFaceCount}s...)` : 'Đang giám sát';
-      if (noFaceCount >= 2) { // ~3s not looking → violation
+      document.getElementById('cam-label').textContent = `⚠️ Không thấy mắt (${noFaceCount * 1.5}s...)`;
+      if (noFaceCount >= 2) { // ~3s not detected → violation
         noFaceCount = 0;
         recordViolation('Không nhìn vào màn hình / rời khỏi vị trí');
         setTimeout(() => {
           if (!submitted) document.getElementById('cam-label').textContent = 'Đang giám sát';
-        }, 3000);
+        }, 2000);
       }
     } else {
       noFaceCount = 0;
