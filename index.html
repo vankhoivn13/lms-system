@@ -185,43 +185,56 @@ async function tryStartCamera() {
   btn.textContent = '⏳ Đang kết nối camera...';
   btn.disabled = true;
   btn.onclick = null;
-  showAlert('webcam-alert', '📷 Đang yêu cầu quyền truy cập camera...');
-  document.getElementById('webcam-alert').style.background = '#eff6ff';
-  document.getElementById('webcam-alert').style.color = '#1d4ed8';
-  document.getElementById('webcam-alert').style.border = '1px solid #bfdbfe';
+  showAlert('webcam-alert', '📷 Đang tìm và kết nối camera...');
+  document.getElementById('webcam-alert').style.cssText = 'display:block;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;';
 
-  const constraints = [
-    { video: { facingMode:'user', width:{ideal:640}, height:{ideal:480} } },
-    { video: true }
-  ];
+  // Build list of constraints to try: enumerate real devices first, then fallbacks
+  const constraints = [];
+  try {
+    // Request permission first with bare constraint so enumerateDevices gets labels
+    const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    tempStream.getTracks().forEach(t => t.stop());
+    // Now enumerate all video input devices
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices.filter(d => d.kind === 'videoinput');
+    // Add each real camera by deviceId (last camera first — often USB > built-in)
+    cameras.reverse().forEach(cam => {
+      constraints.push({ video: { deviceId: { exact: cam.deviceId }, width:{ideal:640}, height:{ideal:480} } });
+    });
+  } catch(e) { /* permission denied — fallbacks below will handle */ }
+  // Fallbacks
+  constraints.push({ video: { width:{ideal:640}, height:{ideal:480} } });
+  constraints.push({ video: true });
 
   for (const c of constraints) {
     try {
-      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000));
+      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000));
       webcamStream = await Promise.race([navigator.mediaDevices.getUserMedia(c), timeout]);
       const vid = document.getElementById('webcam-video');
       vid.srcObject = webcamStream;
       await vid.play().catch(()=>{});
+      // Wait for actual video frames
       await new Promise(resolve => {
         if (vid.videoWidth > 0) { resolve(); return; }
         vid.addEventListener('loadedmetadata', resolve, { once: true });
         setTimeout(resolve, 2000);
       });
-      hideAlert('webcam-alert');
-      btn.textContent = '📸 Chụp ảnh';
-      btn.disabled = false;
-      btn.onclick = capturePhoto;
-      return;
+      // Verify stream is producing video (not just black)
+      if (webcamStream.getVideoTracks().length > 0 && webcamStream.getVideoTracks()[0].readyState === 'live') {
+        document.getElementById('webcam-alert').style.cssText = 'display:none;';
+        btn.textContent = '📸 Chụp ảnh';
+        btn.disabled = false;
+        btn.onclick = capturePhoto;
+        return;
+      }
+      webcamStream.getTracks().forEach(t=>t.stop()); webcamStream=null;
     } catch(e) {
       if (webcamStream) { webcamStream.getTracks().forEach(t=>t.stop()); webcamStream=null; }
     }
   }
 
-  // All failed
-  document.getElementById('webcam-alert').style.background = '';
-  document.getElementById('webcam-alert').style.color = '';
-  document.getElementById('webcam-alert').style.border = '';
-  showAlert('webcam-alert', '❌ Không thể truy cập camera. Vui lòng:\n1. Cho phép quyền camera khi trình duyệt hỏi\n2. Đóng các tab/ứng dụng đang dùng camera\n3. Thử lại');
+  document.getElementById('webcam-alert').style.cssText = 'display:block;';
+  showAlert('webcam-alert', '❌ Không thể truy cập camera. Vui lòng đóng các ứng dụng đang dùng camera rồi nhấn Thử lại.');
   btn.textContent = '🔄 Thử lại';
   btn.disabled = false;
   btn.onclick = tryStartCamera;
