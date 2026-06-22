@@ -3,314 +3,647 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Đăng Nhập — LMS</title>
+<title>ACE Testing System — Anh ngữ Á Châu</title>
 <style>
-  :root { --primary:#2563eb; --primary-dark:#1d4ed8; --danger:#dc2626; --success:#16a34a; --border:#e2e8f0; --text:#1e293b; --text-muted:#64748b; }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:'Segoe UI',sans-serif; background:linear-gradient(135deg,#1e3a8a 0%,#2563eb 50%,#3b82f6 100%); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
-  .login-wrapper { width:100%; max-width:420px; }
-  .login-header { text-align:center; margin-bottom:32px; }
-  .login-header .logo { font-size:48px; margin-bottom:12px; }
-  .login-header h1 { color:#fff; font-size:24px; font-weight:700; }
-  .login-header p  { color:rgba(255,255,255,.7); font-size:14px; margin-top:4px; }
-  .login-card { background:#fff; border-radius:16px; padding:32px; box-shadow:0 20px 60px rgba(0,0,0,.2); }
-  .tab-switcher { display:flex; background:#f1f5f9; border-radius:8px; padding:4px; margin-bottom:24px; }
-  .tab-btn { flex:1; padding:8px; border:none; background:transparent; border-radius:6px; font-size:13px; font-weight:500; cursor:pointer; color:var(--text-muted); transition:all .2s; }
-  .tab-btn.active { background:#fff; color:var(--primary); box-shadow:0 1px 4px rgba(0,0,0,.1); }
-  .form-group { margin-bottom:16px; }
-  .form-group label { display:block; font-size:13px; font-weight:500; color:var(--text-muted); margin-bottom:6px; }
-  .input-wrap { position:relative; }
-  .input-wrap .input-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:16px; }
-  .form-group input { width:100%; padding:10px 12px 10px 38px; border:1.5px solid var(--border); border-radius:8px; font-size:14px; color:var(--text); transition:border-color .2s; outline:none; }
-  .form-group input:focus { border-color:var(--primary); }
-  .btn-login { width:100%; padding:12px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; transition:background .2s; margin-top:4px; }
-  .btn-login:hover { background:var(--primary-dark); }
-  .btn-login:disabled { opacity:.6; cursor:not-allowed; }
-  .alert { padding:10px 14px; border-radius:8px; font-size:13px; margin-bottom:16px; display:none; }
-  .alert-danger  { background:#fff1f2; color:var(--danger);  border:1px solid #fecdd3; }
-  .alert-success { background:#f0fdf4; color:var(--success); border:1px solid #bbf7d0; }
-  .login-footer { text-align:center; margin-top:20px; font-size:12px; color:var(--text-muted); }
-  .loader { display:inline-block; width:16px; height:16px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
-  @keyframes spin { to { transform:rotate(360deg); } }
-  .panel { display:none; }
-  .panel.active { display:block; }
-  .webcam-container { text-align:center; }
-  .webcam-container video { width:100%; max-width:360px; border-radius:12px; border:3px solid var(--primary); background:#000; }
-  .webcam-container canvas { display:none; }
-  .capture-frame { position:relative; display:inline-block; }
-  .capture-overlay { position:absolute; inset:0; border-radius:12px; border:3px solid var(--success); display:none; animation:pulse-border 1s ease-in-out; }
+  :root {
+    --red:        #c8102e;
+    --red-dark:   #9b0e24;
+    --red-deep:   #7f1d1d;
+    --gold:       #f59e0b;
+    --gold-light: #fcd34d;
+    --success:    #16a34a;
+    --danger:     #dc2626;
+    --border:     #e2e8f0;
+    --text:       #1e293b;
+    --muted:      #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(150deg, #7f1d1d 0%, #991b1b 35%, #c8102e 65%, #b91c1c 100%);
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 20px;
+  }
+
+  /* Header branding */
+  .brand-header {
+    text-align: center; margin-bottom: 28px;
+  }
+  .brand-logo {
+    width: 88px; height: 88px; object-fit: contain; margin-bottom: 12px;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,.35));
+  }
+  .brand-logo-fallback {
+    font-size: 64px; margin-bottom: 8px; display: none;
+  }
+  .brand-name {
+    color: #fff; font-size: 26px; font-weight: 800;
+    letter-spacing: .5px; text-shadow: 0 2px 8px rgba(0,0,0,.4);
+  }
+  .brand-name span { color: var(--gold-light); }
+  .brand-sub {
+    color: rgba(255,255,255,.75); font-size: 13px; margin-top: 4px;
+    letter-spacing: .3px;
+  }
+  .brand-divider {
+    width: 60px; height: 3px; margin: 10px auto 0;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    border-radius: 2px;
+  }
+
+  /* Card */
+  .card {
+    background: #fff; border-radius: 18px; padding: 32px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.28);
+    width: 100%; max-width: 420px;
+  }
+
+  /* Tabs */
+  .tab-row {
+    display: flex; background: #f1f5f9; border-radius: 10px;
+    padding: 4px; margin-bottom: 24px; gap: 4px;
+  }
+  .tab-btn {
+    flex: 1; padding: 9px 6px; border: none; background: transparent;
+    border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+    color: var(--muted); transition: all .2s;
+  }
+  .tab-btn.active {
+    background: var(--red); color: #fff;
+    box-shadow: 0 2px 8px rgba(200,16,46,.35);
+  }
+
+  /* Panel */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Form */
+  .form-group { margin-bottom: 16px; }
+  .form-group label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--muted); margin-bottom: 6px; text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .input-wrap { position: relative; }
+  .input-icon {
+    position: absolute; left: 12px; top: 50%;
+    transform: translateY(-50%); font-size: 16px; pointer-events: none;
+  }
+  input[type=text], input[type=password], input[type=email], select {
+    width: 100%; padding: 11px 12px 11px 40px;
+    border: 1.5px solid var(--border); border-radius: 9px;
+    font-size: 14px; color: var(--text); outline: none;
+    transition: border-color .2s;
+  }
+  input:focus, select:focus { border-color: var(--red); }
+  select { padding-left: 12px; }
+
+  .btn {
+    width: 100%; padding: 13px; background: var(--red); color: #fff;
+    border: none; border-radius: 9px; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: background .2s; margin-top: 4px;
+  }
+  .btn:hover { background: var(--red-dark); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn-gold {
+    background: linear-gradient(135deg, var(--gold), #d97706);
+    box-shadow: 0 2px 10px rgba(245,158,11,.4);
+  }
+  .btn-gold:hover { background: linear-gradient(135deg, #d97706, #b45309); }
+  .btn-outline {
+    background: transparent; border: 1.5px solid var(--border);
+    color: var(--text);
+  }
+  .btn-outline:hover { background: #f8fafc; }
+  .btn-success { background: var(--success); }
+  .btn-success:hover { background: #15803d; }
+  .btn-sm { padding: 8px 14px; font-size: 13px; width: auto; margin-top: 0; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 4px; }
+  .btn-row .btn { margin-top: 0; }
+
+  /* Alerts */
+  .alert {
+    padding: 10px 14px; border-radius: 8px; font-size: 13px;
+    margin-bottom: 16px; display: none;
+  }
+  .alert-danger  { background: #fff1f2; color: var(--danger); border: 1px solid #fecdd3; }
+  .alert-success { background: #f0fdf4; color: var(--success); border: 1px solid #bbf7d0; }
+
+  /* Info box */
+  .info-box {
+    background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px;
+    padding: 12px 14px; font-size: 13px; color: #9a3412; margin-bottom: 16px;
+  }
+  .info-box strong { display: block; margin-bottom: 4px; }
+
+  /* Webcam */
+  .webcam-wrap { text-align: center; }
+  .webcam-wrap video {
+    width: 100%; max-width: 360px; border-radius: 12px;
+    border: 3px solid var(--red); background: #000;
+  }
+  .webcam-wrap canvas { display: none; }
+  .capture-frame { position: relative; display: inline-block; }
+  .capture-flash {
+    position: absolute; inset: 0; border-radius: 12px;
+    border: 3px solid var(--success); display: none;
+    animation: pulse-border 1s ease-in-out;
+  }
   @keyframes pulse-border { 0%,100%{opacity:1}50%{opacity:.3} }
-  .snap-preview { width:100%; max-width:360px; border-radius:12px; margin-top:12px; display:none; }
-  .info-box { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px; font-size:13px; color:#1e40af; margin-bottom:16px; }
-  .info-box strong { display:block; margin-bottom:4px; }
+  .snap-preview {
+    width: 100%; max-width: 360px; border-radius: 12px;
+    margin-top: 10px; display: none;
+  }
+
+  /* Exam list */
+  .exam-item {
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; margin-bottom: 10px;
+    transition: border-color .2s;
+  }
+  .exam-item:hover { border-color: var(--red); }
+  .exam-title { font-weight: 700; margin-bottom: 4px; }
+  .exam-meta { font-size: 12px; color: var(--muted); }
+
+  /* Step header */
+  .step-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted); cursor: pointer;
+    margin-bottom: 16px; padding: 4px 0;
+  }
+  .step-back:hover { color: var(--red); }
+
+  /* Loader */
+  .loader {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+    border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Welcome banner */
+  .welcome-bar {
+    background: linear-gradient(135deg, var(--red-deep), var(--red));
+    color: #fff; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .welcome-bar .avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,255,255,.2); display: flex; align-items: center;
+    justify-content: center; font-size: 20px; flex-shrink: 0;
+  }
+  .welcome-bar .info strong { display: block; font-size: 14px; font-weight: 700; }
+  .welcome-bar .info span  { font-size: 12px; opacity: .8; }
+
+  /* Change password link */
+  .change-pw-link {
+    text-align: center; margin-top: 12px;
+    font-size: 12px; color: var(--muted);
+  }
+  .change-pw-link a { color: var(--red); cursor: pointer; }
+
+  /* Footer */
+  .footer-links {
+    text-align: center; margin-top: 18px;
+    font-size: 12px; color: rgba(255,255,255,.6);
+  }
+  .footer-links a {
+    color: rgba(255,255,255,.75); text-decoration: none;
+    border-bottom: 1px solid rgba(255,255,255,.3);
+  }
+  .footer-links a:hover { color: var(--gold-light); }
+
+  /* ID result box */
+  .id-result {
+    background: linear-gradient(135deg, #7f1d1d, var(--red));
+    color: #fff; border-radius: 12px; padding: 20px; text-align: center; margin-top: 8px;
+  }
+  .id-result .id-label { font-size: 12px; opacity: .8; margin-bottom: 6px; }
+  .id-result .id-value { font-size: 28px; font-weight: 900; letter-spacing: 2px; color: var(--gold-light); }
+  .id-result .id-note  { font-size: 12px; opacity: .75; margin-top: 8px; }
 </style>
 </head>
 <body>
-<div class="login-wrapper">
-  <div class="login-header">
-    <div class="logo">🎓</div>
-    <h1>Hệ Thống Thi LMS</h1>
-    <p>Đăng nhập để vào phòng thi</p>
-  </div>
-  <div class="login-card">
-    <div class="tab-switcher">
-      <button class="tab-btn active" onclick="switchTab('student')">👨‍🎓 Học sinh</button>
-      <button class="tab-btn" onclick="switchTab('admin')">🔑 Admin</button>
+
+<!-- Brand header -->
+<div class="brand-header">
+  <img class="brand-logo" id="logo-img"
+    src="https://lh3.googleusercontent.com/d/1jtxhRrUxip69b4VqgqAR9joCsZ2dDx79"
+    alt="ACE Logo"
+    onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='block'">
+  <div class="brand-logo-fallback" id="logo-fallback">🎓</div>
+  <div class="brand-name">ACE <span>Testing System</span></div>
+  <div class="brand-sub">Anh ngữ Á Châu — Hệ thống kiểm tra trực tuyến</div>
+  <div class="brand-divider"></div>
+</div>
+
+<!-- Card -->
+<div class="card" id="main-card">
+
+  <!-- ===== LOGIN / REGISTER tabs ===== -->
+  <div id="view-auth">
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchAuthTab('login')">🔑 Đăng nhập</button>
+      <button class="tab-btn"        onclick="switchAuthTab('register')">📝 Đăng ký dự thi</button>
     </div>
 
-    <!-- STUDENT LOGIN -->
-    <div id="tab-student" class="panel active">
-      <div id="step-credentials" class="panel active">
-        <div id="alert-box" class="alert alert-danger"></div>
+    <!-- LOGIN -->
+    <div id="tab-login" class="panel active">
+      <div id="login-alert" class="alert alert-danger"></div>
+      <div class="form-group">
+        <label>Mã thí sinh</label>
+        <div class="input-wrap">
+          <span class="input-icon">🆔</span>
+          <input type="text" id="login-id" placeholder="VD: ACE20260622001" autocomplete="username">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="login-pw" placeholder="Nhập mật khẩu"
+                 onkeydown="if(event.key==='Enter') doLogin()">
+        </div>
+      </div>
+      <button class="btn" onclick="doLogin()" id="login-btn">Đăng nhập</button>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="tab-register" class="panel">
+      <div id="reg-alert" class="alert alert-danger"></div>
+      <div id="reg-form">
+        <div class="info-box">
+          <strong>📋 Đăng ký lần đầu</strong>
+          Điền thông tin bên dưới. Hệ thống sẽ tự tạo Mã thí sinh — hãy ghi lại để đăng nhập lần sau.
+        </div>
         <div class="form-group">
-          <label>Mã học sinh</label>
+          <label>Họ và tên</label>
           <div class="input-wrap">
-            <span class="input-icon">🆔</span>
-            <input type="text" id="student-id" placeholder="VD: SV001" autocomplete="username">
+            <span class="input-icon">👤</span>
+            <input type="text" id="reg-name" placeholder="Nguyễn Văn A">
           </div>
         </div>
         <div class="form-group">
-          <label>Mật khẩu</label>
+          <label>Chi nhánh</label>
+          <div class="input-wrap">
+            <span class="input-icon">🏢</span>
+            <input type="text" id="reg-branch" placeholder="VD: Quận 1, Bình Dương...">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Mật khẩu (≥ 6 ký tự)</label>
           <div class="input-wrap">
             <span class="input-icon">🔒</span>
-            <input type="password" id="student-pw" placeholder="Nhập mật khẩu" autocomplete="current-password"
-                   onkeydown="if(event.key==='Enter') doStudentLogin()">
+            <input type="password" id="reg-pw" placeholder="Đặt mật khẩu">
           </div>
         </div>
-        <button class="btn-login" onclick="doStudentLogin()" id="login-btn">Đăng nhập</button>
-        <div class="login-footer">Mật khẩu mặc định: <b>123456</b></div>
-      </div>
-
-      <div id="step-webcam" class="panel">
-        <div class="info-box">
-          <strong>📷 Xác minh danh tính</strong>
-          Hãy nhìn thẳng vào camera và chụp ảnh để xác thực trước khi vào phòng thi.
-        </div>
-        <div class="webcam-container">
-          <div class="capture-frame">
-            <video id="webcam-video" autoplay playsinline muted></video>
-            <div class="capture-overlay" id="capture-flash"></div>
+        <div class="form-group">
+          <label>Xác nhận mật khẩu</label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="reg-pw2" placeholder="Nhập lại mật khẩu"
+                   onkeydown="if(event.key==='Enter') doRegister()">
           </div>
-          <canvas id="webcam-canvas"></canvas>
-          <img id="snap-preview" class="snap-preview" alt="Ảnh xác minh">
         </div>
-        <div id="webcam-alert" class="alert alert-danger" style="margin-top:12px;"></div>
-        <div style="display:flex;gap:10px;margin-top:16px;">
-          <button class="btn-login" style="background:#64748b;display:none;" onclick="retakePhoto()" id="retake-btn">🔄 Chụp lại</button>
-          <button class="btn-login" id="capture-btn" onclick="capturePhoto()">📸 Chụp ảnh</button>
+        <button class="btn btn-gold" onclick="doRegister()" id="reg-btn">📝 Đăng ký & Nhận mã</button>
+      </div>
+      <!-- Result after registration -->
+      <div id="reg-result" style="display:none;">
+        <div class="id-result">
+          <div class="id-label">✅ Đăng ký thành công! Mã thí sinh của bạn:</div>
+          <div class="id-value" id="reg-id-value"></div>
+          <div class="id-note">⚠️ Ghi lại mã này để đăng nhập lần sau</div>
         </div>
-        <button class="btn-login" style="background:var(--success);display:none;margin-top:10px;" id="enter-exam-btn" onclick="enterExam()">✅ Vào phòng thi</button>
+        <button class="btn btn-gold" onclick="switchAuthTab('login')" style="margin-top:14px;">
+          → Đăng nhập ngay
+        </button>
       </div>
-
-      <div id="step-choose-exam" class="panel">
-        <div class="info-box"><strong id="welcome-name"></strong>Chọn bài thi để bắt đầu</div>
-        <div id="exam-list"></div>
-      </div>
-    </div>
-
-    <!-- ADMIN LOGIN -->
-    <div id="tab-admin" class="panel">
-      <div id="admin-alert" class="alert alert-danger"></div>
-      <div class="form-group">
-        <label>Mật khẩu Admin</label>
-        <div class="input-wrap">
-          <span class="input-icon">🔑</span>
-          <input type="password" id="admin-pw" placeholder="Admin password"
-                 onkeydown="if(event.key==='Enter') doAdminLogin()">
-        </div>
-      </div>
-      <button class="btn-login" onclick="doAdminLogin()">Vào Admin Panel</button>
-      <div class="login-footer" style="margin-top:12px;">Admin panel: <a href="https://script.google.com/macros/s/AKfycbxeWng8djn2nsp26i4CinFZGlsQlGOFiUF4UAKO56uDWlAfbYlOTcjbvyHXiEPTda8K/exec?page=admin" style="color:var(--primary)">Mở Admin Panel</a></div>
     </div>
   </div>
+
+  <!-- ===== WEBCAM step ===== -->
+  <div id="view-webcam" style="display:none;">
+    <div class="step-back" onclick="showView('auth')">← Quay lại</div>
+    <div class="info-box">
+      <strong>📷 Xác minh danh tính</strong>
+      Hãy nhìn thẳng vào camera và chụp ảnh để xác thực trước khi vào phòng thi.
+    </div>
+    <div class="webcam-wrap">
+      <div class="capture-frame">
+        <video id="webcam-video" autoplay playsinline muted></video>
+        <div class="capture-flash" id="capture-flash"></div>
+      </div>
+      <canvas id="webcam-canvas"></canvas>
+      <img id="snap-preview" class="snap-preview" alt="Ảnh xác minh">
+    </div>
+    <div id="webcam-alert" class="alert alert-danger" style="margin-top:12px;"></div>
+    <div class="btn-row" style="margin-top:14px;">
+      <button class="btn btn-outline" onclick="retakePhoto()" id="retake-btn" style="display:none;">🔄 Chụp lại</button>
+      <button class="btn" id="capture-btn" onclick="capturePhoto()">📸 Chụp ảnh</button>
+    </div>
+    <button class="btn btn-success" style="display:none;margin-top:10px;" id="enter-btn" onclick="enterExam()">
+      ✅ Vào phòng thi
+    </button>
+  </div>
+
+  <!-- ===== CHOOSE EXAM step ===== -->
+  <div id="view-exams" style="display:none;">
+    <div id="welcome-bar" class="welcome-bar">
+      <div class="avatar">👤</div>
+      <div class="info">
+        <strong id="welcome-name"></strong>
+        <span id="welcome-branch"></span>
+      </div>
+    </div>
+    <div id="exam-list"></div>
+    <div class="change-pw-link">
+      <a onclick="showView('change-pw')">🔑 Đổi mật khẩu</a>
+    </div>
+  </div>
+
+  <!-- ===== CHANGE PASSWORD ===== -->
+  <div id="view-change-pw" style="display:none;">
+    <div class="step-back" onclick="showView('exams')">← Quay lại</div>
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:16px;">🔑 Đổi mật khẩu</h3>
+    <div id="chpw-alert" class="alert alert-danger"></div>
+    <div id="chpw-success" class="alert alert-success"></div>
+    <div class="form-group">
+      <label>Mật khẩu hiện tại</label>
+      <div class="input-wrap">
+        <span class="input-icon">🔒</span>
+        <input type="password" id="chpw-old" placeholder="Mật khẩu hiện tại">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Mật khẩu mới</label>
+      <div class="input-wrap">
+        <span class="input-icon">🔑</span>
+        <input type="password" id="chpw-new" placeholder="Ít nhất 6 ký tự">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Xác nhận mật khẩu mới</label>
+      <div class="input-wrap">
+        <span class="input-icon">🔑</span>
+        <input type="password" id="chpw-new2" placeholder="Nhập lại mật khẩu mới"
+               onkeydown="if(event.key==='Enter') doChangePassword()">
+      </div>
+    </div>
+    <button class="btn" onclick="doChangePassword()" id="chpw-btn">Đổi mật khẩu</button>
+  </div>
+
+</div><!-- /card -->
+
+<!-- Examiner link -->
+<div class="footer-links">
+  Giám khảo / Admin? <a href="https://script.google.com/macros/s/AKfycbxeWng8djn2nsp26i4CinFZGlsQlGOFiUF4UAKO56uDWlAfbYlOTcjbvyHXiEPTda8K/exec?page=admin" target="_blank">Vào trang giám khảo →</a>
 </div>
 
 <script>
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxeWng8djn2nsp26i4CinFZGlsQlGOFiUF4UAKO56uDWlAfbYlOTcjbvyHXiEPTda8K/exec';
 const EXAM_URL = 'exam.html';
 
-async function gas(action, ...args) {
-  const url = GAS_URL + '?action=' + encodeURIComponent(action) + '&args=' + encodeURIComponent(JSON.stringify(args));
-  const resp = await fetch(url, { redirect: 'follow' });
-  const text = await resp.text();
-  try { return JSON.parse(text); } catch(e) { return { success: false, error: text }; }
-}
-
 let studentData = null;
 let capturedPhotoB64 = null;
 let webcamStream = null;
 
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active',(i===0)===(tab==='student')));
-  document.getElementById('tab-student').classList.toggle('active', tab==='student');
-  document.getElementById('tab-admin').classList.toggle('active', tab==='admin');
+// ---- API helper (POST via beacon/fetch) ----
+async function gas(action, ...args) {
+  const body = JSON.stringify({ action, args });
+  try {
+    const resp = await fetch(GAS_URL, {
+      method: 'POST',
+      body,
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    const text = await resp.text();
+    return JSON.parse(text);
+  } catch(e) {
+    // CORS fallback to GET for read-only actions
+    const url = GAS_URL + '?action=' + encodeURIComponent(action) + '&args=' + encodeURIComponent(JSON.stringify(args));
+    const r = await fetch(url, { redirect: 'follow' });
+    return JSON.parse(await r.text());
+  }
 }
 
-function showAlert(id, msg) { const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
-function hideAlert(id) { document.getElementById(id).style.display='none'; }
-function showStep(step) {
-  ['step-credentials','step-webcam','step-choose-exam'].forEach(id => {
-    document.getElementById(id).classList.toggle('active', id==='step-'+step);
+// ---- View management ----
+function showView(name) {
+  ['auth','webcam','exams','change-pw'].forEach(v => {
+    document.getElementById('view-' + v).style.display = (v === name) ? 'block' : 'none';
   });
 }
 
-async function doStudentLogin() {
-  const sid = document.getElementById('student-id').value.trim();
-  const pw  = document.getElementById('student-pw').value;
-  if (!sid || !pw) { showAlert('alert-box','Vui lòng nhập đầy đủ thông tin.'); return; }
-  hideAlert('alert-box');
+// ---- Auth tabs ----
+function switchAuthTab(tab) {
+  ['login','register'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0) === (tab === 'login'));
+  });
+  // Pre-fill login ID if just registered
+  if (tab === 'login' && document.getElementById('reg-id-value').textContent) {
+    document.getElementById('login-id').value = document.getElementById('reg-id-value').textContent;
+  }
+}
+
+// ---- Alert helpers ----
+function showAlert(id, msg) { const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
+function hideAlert(id) { document.getElementById(id).style.display='none'; }
+
+// ---- Login ----
+async function doLogin() {
+  const sid = document.getElementById('login-id').value.trim();
+  const pw  = document.getElementById('login-pw').value;
+  if (!sid || !pw) { showAlert('login-alert', 'Vui lòng nhập đầy đủ thông tin.'); return; }
+  hideAlert('login-alert');
   const btn = document.getElementById('login-btn');
   btn.innerHTML = '<span class="loader"></span> Đang xác thực...';
   btn.disabled = true;
   try {
     const res = await gas('studentLogin', sid, pw);
     btn.innerHTML = 'Đăng nhập'; btn.disabled = false;
-    if (!res.success) { showAlert('alert-box', res.error); return; }
+    if (!res.success) { showAlert('login-alert', res.error); return; }
     studentData = res.data;
     startWebcam();
   } catch(e) {
     btn.innerHTML = 'Đăng nhập'; btn.disabled = false;
-    showAlert('alert-box', 'Lỗi kết nối. Vui lòng thử lại.');
+    showAlert('login-alert', 'Lỗi kết nối. Vui lòng thử lại.');
   }
 }
 
-async function startWebcam() {
-  showStep('webcam');
+// ---- Register ----
+async function doRegister() {
+  const name   = document.getElementById('reg-name').value.trim();
+  const branch = document.getElementById('reg-branch').value.trim();
+  const pw     = document.getElementById('reg-pw').value;
+  const pw2    = document.getElementById('reg-pw2').value;
+  hideAlert('reg-alert');
+  if (!name || !branch || !pw) { showAlert('reg-alert', 'Vui lòng điền đầy đủ thông tin.'); return; }
+  if (pw !== pw2) { showAlert('reg-alert', 'Mật khẩu xác nhận không khớp.'); return; }
+  if (pw.length < 6) { showAlert('reg-alert', 'Mật khẩu phải có ít nhất 6 ký tự.'); return; }
+  const btn = document.getElementById('reg-btn');
+  btn.innerHTML = '<span class="loader"></span> Đang đăng ký...'; btn.disabled = true;
+  try {
+    const res = await gas('registerCandidate', name, branch, pw);
+    btn.innerHTML = '📝 Đăng ký & Nhận mã'; btn.disabled = false;
+    if (!res.success) { showAlert('reg-alert', res.error); return; }
+    document.getElementById('reg-id-value').textContent = res.data.student_id;
+    document.getElementById('reg-form').style.display = 'none';
+    document.getElementById('reg-result').style.display = 'block';
+  } catch(e) {
+    btn.innerHTML = '📝 Đăng ký & Nhận mã'; btn.disabled = false;
+    showAlert('reg-alert', 'Lỗi kết nối. Vui lòng thử lại.');
+  }
+}
+
+// ---- Webcam ----
+function startWebcam() {
+  showView('webcam');
   hideAlert('webcam-alert');
-  await tryStartCamera();
+  document.getElementById('snap-preview').style.display = 'none';
+  document.getElementById('capture-btn').style.display = 'block';
+  document.getElementById('retake-btn').style.display = 'none';
+  document.getElementById('enter-btn').style.display = 'none';
+  tryStartCamera();
 }
 
 async function tryStartCamera() {
   const btn = document.getElementById('capture-btn');
-  btn.textContent = '⏳ Đang kết nối camera...';
-  btn.disabled = true;
-  btn.onclick = null;
-  showAlert('webcam-alert', '📷 Đang tìm và kết nối camera...');
-  document.getElementById('webcam-alert').style.cssText = 'display:block;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;';
-
-  // Build list of constraints to try: enumerate real devices first, then fallbacks
+  btn.textContent = '⏳ Đang kết nối camera...'; btn.disabled = true;
   const constraints = [];
   try {
-    // Request permission first with bare constraint so enumerateDevices gets labels
-    const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-    tempStream.getTracks().forEach(t => t.stop());
-    // Now enumerate all video input devices
+    const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
+    tmp.getTracks().forEach(t => t.stop());
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const cameras = devices.filter(d => d.kind === 'videoinput');
-    // Add each real camera by deviceId (last camera first — often USB > built-in)
-    cameras.reverse().forEach(cam => {
+    devices.filter(d => d.kind === 'videoinput').reverse().forEach(cam => {
       constraints.push({ video: { deviceId: { exact: cam.deviceId }, width:{ideal:640}, height:{ideal:480} } });
     });
-  } catch(e) { /* permission denied — fallbacks below will handle */ }
-  // Fallbacks
+  } catch(e) {}
   constraints.push({ video: { width:{ideal:640}, height:{ideal:480} } });
   constraints.push({ video: true });
 
   for (const c of constraints) {
     try {
-      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000));
+      const timeout = new Promise((_,rej) => setTimeout(() => rej(new Error('timeout')), 6000));
       webcamStream = await Promise.race([navigator.mediaDevices.getUserMedia(c), timeout]);
       const vid = document.getElementById('webcam-video');
       vid.srcObject = webcamStream;
       await vid.play().catch(()=>{});
-      // Wait for actual video frames
       await new Promise(resolve => {
         if (vid.videoWidth > 0) { resolve(); return; }
         vid.addEventListener('loadedmetadata', resolve, { once: true });
         setTimeout(resolve, 2000);
       });
-      // Verify stream is producing video (not just black)
       if (webcamStream.getVideoTracks().length > 0 && webcamStream.getVideoTracks()[0].readyState === 'live') {
-        document.getElementById('webcam-alert').style.cssText = 'display:none;';
-        btn.textContent = '📸 Chụp ảnh';
-        btn.disabled = false;
-        btn.onclick = capturePhoto;
+        hideAlert('webcam-alert');
+        btn.textContent = '📸 Chụp ảnh'; btn.disabled = false; btn.onclick = capturePhoto;
         return;
       }
-      webcamStream.getTracks().forEach(t=>t.stop()); webcamStream=null;
+      webcamStream.getTracks().forEach(t=>t.stop()); webcamStream = null;
     } catch(e) {
-      if (webcamStream) { webcamStream.getTracks().forEach(t=>t.stop()); webcamStream=null; }
+      if (webcamStream) { webcamStream.getTracks().forEach(t=>t.stop()); webcamStream = null; }
     }
   }
-
-  document.getElementById('webcam-alert').style.cssText = 'display:block;';
-  showAlert('webcam-alert', '❌ Không thể truy cập camera. Vui lòng đóng các ứng dụng đang dùng camera rồi nhấn Thử lại.');
-  btn.textContent = '🔄 Thử lại';
-  btn.disabled = false;
-  btn.onclick = tryStartCamera;
+  showAlert('webcam-alert', '❌ Không thể truy cập camera. Đóng các ứng dụng đang dùng camera rồi thử lại.');
+  btn.textContent = '🔄 Thử lại'; btn.disabled = false; btn.onclick = tryStartCamera;
 }
 
 function capturePhoto() {
-  const video=document.getElementById('webcam-video');
-  const canvas=document.getElementById('webcam-canvas');
-  const preview=document.getElementById('snap-preview');
-  canvas.width=video.videoWidth||640; canvas.height=video.videoHeight||480;
-  canvas.getContext('2d').drawImage(video,0,0);
-  capturedPhotoB64 = canvas.toDataURL('image/jpeg',0.8);
-  preview.src=capturedPhotoB64; preview.style.display='block';
-  const flash=document.getElementById('capture-flash');
-  flash.style.display='block'; setTimeout(()=>flash.style.display='none',800);
-  document.getElementById('capture-btn').style.display='none';
-  document.getElementById('retake-btn').style.display='block';
-  document.getElementById('enter-exam-btn').style.display='block';
+  const video   = document.getElementById('webcam-video');
+  const canvas  = document.getElementById('webcam-canvas');
+  const preview = document.getElementById('snap-preview');
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  capturedPhotoB64 = canvas.toDataURL('image/jpeg', 0.8);
+  preview.src = capturedPhotoB64; preview.style.display = 'block';
+  const flash = document.getElementById('capture-flash');
+  flash.style.display = 'block'; setTimeout(() => flash.style.display = 'none', 800);
+  document.getElementById('capture-btn').style.display = 'none';
+  document.getElementById('retake-btn').style.display = 'block';
+  document.getElementById('enter-btn').style.display = 'block';
 }
 
 function retakePhoto() {
-  capturedPhotoB64=null;
-  document.getElementById('snap-preview').style.display='none';
-  document.getElementById('capture-btn').style.display='block';
-  document.getElementById('retake-btn').style.display='none';
-  document.getElementById('enter-exam-btn').style.display='none';
+  capturedPhotoB64 = null;
+  document.getElementById('snap-preview').style.display = 'none';
+  document.getElementById('capture-btn').style.display = 'block';
+  document.getElementById('retake-btn').style.display = 'none';
+  document.getElementById('enter-btn').style.display = 'none';
 }
 
 function enterExam() {
-  if (webcamStream) { webcamStream.getTracks().forEach(t=>t.stop()); webcamStream=null; }
+  if (webcamStream) { webcamStream.getTracks().forEach(t=>t.stop()); webcamStream = null; }
   if (capturedPhotoB64) {
-    gas('saveSnapshot', capturedPhotoB64, studentData.student_id, 'identity', 0).catch(()=>{});
+    sessionStorage.setItem('lms_identity_photo', capturedPhotoB64);
   }
-  loadStudentExams();
+  loadExams();
 }
 
-async function loadStudentExams() {
-  showStep('choose-exam');
-  document.getElementById('welcome-name').textContent = `Xin chào, ${studentData.name} (${studentData.class})! `;
+// ---- Exam list ----
+async function loadExams() {
+  showView('exams');
+  document.getElementById('welcome-name').textContent = studentData.name;
+  document.getElementById('welcome-branch').textContent = '📍 ' + (studentData.branch || studentData.class || '');
+  document.getElementById('exam-list').innerHTML = '<p style="color:#94a3b8;font-size:13px;">Đang tải danh sách bài thi...</p>';
   try {
     const res = await gas('getStudentExams', studentData.student_id);
-    if (!res.success) { document.getElementById('exam-list').innerHTML='<p style="color:#dc2626">'+res.error+'</p>'; return; }
+    if (!res.success) { document.getElementById('exam-list').innerHTML = '<p style="color:#dc2626">'+res.error+'</p>'; return; }
     const exams = res.data;
-    if (!exams.length) { document.getElementById('exam-list').innerHTML='<p style="color:#64748b;text-align:center;">Hiện không có bài thi nào dành cho bạn.</p>'; return; }
-    document.getElementById('exam-list').innerHTML = exams.map(ex=>`
-      <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:10px;${ex.already_submitted?'opacity:.6':''}">
-        <div style="font-weight:600;margin-bottom:4px;">📝 ${ex.title}</div>
-        <div style="font-size:12px;color:#64748b;">⏱️ ${ex.time_limit} phút</div>
+    if (!exams.length) {
+      document.getElementById('exam-list').innerHTML = '<p style="color:#94a3b8;text-align:center;padding:20px;">Hiện không có bài thi nào dành cho bạn.</p>';
+      return;
+    }
+    document.getElementById('exam-list').innerHTML = exams.map(ex => `
+      <div class="exam-item${ex.already_submitted ? '" style="opacity:.6' : ''}">
+        <div class="exam-title">📝 ${ex.title}</div>
+        <div class="exam-meta">⏱️ ${ex.time_limit} phút</div>
         ${ex.already_submitted
-          ? '<div style="margin-top:8px;"><span style="background:#f0fdf4;color:#16a34a;padding:3px 10px;border-radius:10px;font-size:12px;">✅ Đã nộp bài</span></div>'
-          : `<button onclick="goToExam('${ex.exam_id}')" style="margin-top:10px;padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">Vào thi →</button>`}
+          ? '<div style="margin-top:8px;"><span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:10px;font-size:12px;">✅ Đã nộp bài</span></div>'
+          : `<button onclick="goExam('${ex.exam_id}')"
+               style="margin-top:10px;padding:9px 20px;background:var(--red);color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:13px;font-weight:700;">
+               Vào thi →
+             </button>`}
       </div>`).join('');
   } catch(e) {
-    document.getElementById('exam-list').innerHTML='<p style="color:#dc2626">Lỗi tải danh sách bài thi.</p>';
+    document.getElementById('exam-list').innerHTML = '<p style="color:#dc2626">Lỗi tải danh sách bài thi.</p>';
   }
 }
 
-function goToExam(examId) {
+function goExam(examId) {
   sessionStorage.setItem('lms_student', JSON.stringify(studentData));
   sessionStorage.setItem('lms_exam_id', examId);
   window.location.href = EXAM_URL;
 }
 
-async function doAdminLogin() {
-  const pw = document.getElementById('admin-pw').value;
+// ---- Change password ----
+async function doChangePassword() {
+  const oldPw  = document.getElementById('chpw-old').value;
+  const newPw  = document.getElementById('chpw-new').value;
+  const newPw2 = document.getElementById('chpw-new2').value;
+  hideAlert('chpw-alert'); hideAlert('chpw-success');
+  if (!oldPw || !newPw) { showAlert('chpw-alert', 'Vui lòng điền đầy đủ.'); return; }
+  if (newPw !== newPw2)  { showAlert('chpw-alert', 'Mật khẩu mới không khớp.'); return; }
+  const btn = document.getElementById('chpw-btn');
+  btn.innerHTML = '<span class="loader"></span> Đang lưu...'; btn.disabled = true;
   try {
-    const res = await gas('adminLogin', pw);
-    if (res.success) {
-      window.location.href = GAS_URL + '?page=admin';
-    } else {
-      showAlert('admin-alert', res.error || 'Mật khẩu không đúng.');
-    }
+    const res = await gas('changePassword', studentData.student_id, oldPw, newPw);
+    btn.innerHTML = 'Đổi mật khẩu'; btn.disabled = false;
+    if (!res.success) { showAlert('chpw-alert', res.error); return; }
+    showAlert('chpw-success', '✅ Đổi mật khẩu thành công!');
+    ['chpw-old','chpw-new','chpw-new2'].forEach(id => document.getElementById(id).value = '');
   } catch(e) {
-    showAlert('admin-alert','Lỗi kết nối.');
+    btn.innerHTML = 'Đổi mật khẩu'; btn.disabled = false;
+    showAlert('chpw-alert', 'Lỗi kết nối.');
   }
 }
+
+// Init — show auth view
+showView('auth');
 </script>
 </body>
 </html>
